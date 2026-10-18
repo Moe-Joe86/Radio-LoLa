@@ -1,0 +1,11 @@
+__pycache__/
+*.egg-info/
+build/
+dist/
+.venv/
+.pytest_cache/
+.ruff_cache/
+android/.gradle/
+android/app/build/
+android/local.properties
+android/Radio-LoLa.apk

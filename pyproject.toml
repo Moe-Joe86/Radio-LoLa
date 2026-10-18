@@ -1,0 +1,31 @@
+# Nur für die Entwicklung: Tests und Prüfungen. Die Roboter-App selbst liegt in roboter_app/.
+[project]
+name = "radio-lola-entwicklung"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "numpy>=2",
+    "pytest>=8.3",
+    "ruff>=0.8",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["radio_lola"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["roboter_app"]
+addopts = "--import-mode=importlib"

@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "radio_lola"
+version = "0.1.0"
+description = "Radio für den Reachy Mini: eine Antenne sucht Sender, die andere stellt die Lautstärke"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "reachy-mini"
+]
+keywords = ["reachy-mini-app"]
+
+[project.entry-points."reachy_mini_apps"]
+radio_lola = "radio_lola.main:RadioLola"
+
+[tool.setuptools]
+package-dir = { "" = "." }
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+radio_lola = ["**/*"] # Also include all non-.py files
+
+[tool.setuptools.exclude-package-data]
+radio_lola = ["__pycache__/*", "*.pyc"]

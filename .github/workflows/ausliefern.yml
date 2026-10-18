@@ -1,0 +1,89 @@
+# Prüft bei jedem Push die Roboter-App und die Android-App. Auf main entsteht zusätzlich ein GitHub-Release mit
+# der APK, dem Paket der Roboter-App und dem Installationsskript; die Links „releases/latest/download/…“ zeigen
+# immer auf das neueste.
+name: Bauen und ausliefern
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  roboter-app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Prüfen und testen (ohne Hardware, mit Attrappen)
+        run: |
+          uv sync
+          uv run ruff check .
+          uv run pytest -q
+      - name: Paket der Roboter-App bauen
+        run: uv build --wheel roboter_app --out-dir dist
+      - name: Paket prüfen (Einstiegspunkt für den Daemon, Einstellungsdatei enthalten)
+        run: |
+          uv venv /tmp/probe
+          uv pip install --python /tmp/probe --no-deps dist/radio_lola-0.1.0-py3-none-any.whl
+          /tmp/probe/bin/python -c "
+          from importlib.metadata import entry_points
+          from importlib.resources import files
+          assert entry_points(group='reachy_mini_apps')['radio_lola'].value == 'radio_lola.main:RadioLola'
+          assert (files('radio_lola') / 'einstellungen.toml').is_file()
+          print('Paket in Ordnung')"
+          bash -n roboter_app/installieren.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: roboter-app
+          path: |
+            dist/radio_lola-0.1.0-py3-none-any.whl
+            roboter_app/installieren.sh
+
+  android-app:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Testen und APK bauen
+        run: ./gradlew --no-daemon testReleaseUnitTest assembleRelease
+      - name: APK benennen
+        run: cp app/build/outputs/apk/release/app-release.apk Radio-LoLa.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-app
+          path: android/Radio-LoLa.apk
+
+  release:
+    if: github.ref == 'refs/heads/main'
+    needs: [roboter-app, android-app]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: ausgabe
+          merge-multiple: true
+      - name: Dateien einsammeln
+        run: find ausgabe -type f -exec cp {} . \; && ls -la *.apk *.whl *.sh
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Radio LoLa (Bau ${{ github.run_number }})
+          target_commitish: ${{ github.sha }}
+          make_latest: "true"
+          body: |
+            Automatisch gebaut aus ${{ github.sha }}.
+            - Radio-LoLa.apk: die Android-App
+            - radio_lola-0.1.0-py3-none-any.whl und installieren.sh: das Radio für den Roboter (Anleitung in der README)
+          files: |
+            Radio-LoLa.apk
+            radio_lola-0.1.0-py3-none-any.whl
+            installieren.sh

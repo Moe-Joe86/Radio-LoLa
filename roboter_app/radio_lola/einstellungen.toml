@@ -1,0 +1,36 @@
+# Einstellungen von Radio LoLa
+#
+# Ändern: Diese Datei auf GitHub öffnen, auf den Stift klicken, ändern, „Commit changes“ drücken.
+# Danach das Radio wie in der README beschrieben neu installieren.
+
+# Höchste Lautstärke in Prozent (0 bis 100); die Lautstärke-Antenne regelt von 0 bis zu diesem Wert.
+lautstaerke = 60
+
+# Nutzbarer Winkel der Sender-Antenne in Grad (10 bis 360); dahinter rauscht es nur.
+bereich_grad = 360
+
+# Zählrichtung der Sender-Antenne: 1 oder -1.
+richtung = 1
+
+# Breite der weichen Überblendung zwischen Sender und Rauschen in Grad (0 bis 30).
+ueberblendung_grad = 6
+
+# Sender: jeder Sender ist ein Block aus drei Zeilen ([[sender]], name, adresse), und diese Blöcke stehen am Ende
+# der Datei. Die Adresse ist der direkte Stream (beginnt mit http:// oder https://), am besten MP3.
+# Die Reihenfolge der Blöcke ist die Reihenfolge auf der Antenne.
+
+[[sender]]
+name = "Deutschlandfunk"
+adresse = "https://st01.sslstream.dlf.de/dlf/01/128/mp3/stream.mp3"
+
+[[sender]]
+name = "Deutschlandfunk Kultur"
+adresse = "https://st02.sslstream.dlf.de/dlf/02/128/mp3/stream.mp3"
+
+[[sender]]
+name = "Deutschlandfunk Nova"
+adresse = "https://st03.sslstream.dlf.de/dlf/03/128/mp3/stream.mp3"
+
+[[sender]]
+name = "WDR 2"
+adresse = "https://wdr-wdr2-rheinland.icecastssl.wdr.de/wdr/wdr2/rheinland/mp3/128/stream.mp3"
