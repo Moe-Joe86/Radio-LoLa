@@ -49,6 +49,23 @@ class DaemonTest {
         assertEquals("http://192.168.1.50:8000", basisAdresse(" 192.168.1.50 "))
         assertEquals("http://192.168.1.50:8000", basisAdresse("http://192.168.1.50:8000/"))
         assertEquals("http://[fe80::1]:8000", basisAdresse("[fe80::1]"))
+        assertEquals("http://192.168.1.50:8042", radioAdresse("http://192.168.1.50:8000/"))
+        assertEquals("http://reachy-mini.local:8042", radioAdresse(" reachy-mini.local "))
+    }
+
+    @Test
+    fun radioZustandWirdGelesen() {
+        val antwort = """{"sender": ["Deutschlandfunk", "WDR 2"], "aktiv": 1, "lautstaerke": 40, "stumm": true}"""
+        assertEquals(RadioZustand(listOf("Deutschlandfunk", "WDR 2"), 1, 40, true), radioZustandLesen(antwort))
+        val rauschen = """{"sender": [], "aktiv": null, "lautstaerke": 100, "stumm": false}"""
+        assertNull(radioZustandLesen(rauschen).aktiv)
+    }
+
+    @Test
+    fun meldungVerschwindetSobaldDerZustandDaIst() {
+        assertTrue(meldungErledigt(RADIO_LAEUFT, RADIO_LAEUFT))
+        assertFalse(meldungErledigt(RADIO_LAEUFT, RADIO_AUS))
+        assertFalse(meldungErledigt(null, RADIO_AUS))
     }
 
     @Test

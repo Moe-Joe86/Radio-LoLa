@@ -10,6 +10,8 @@ Darf nicht: Ton wiederholen, den Reachy mit ausgeschalteten Antennen zurücklass
 # Antennen im SDK: [rechts, links] in Radiant. SDK-rechts (von vorn links) sucht Sender, SDK-links (von vorn
 # rechts) ist die Lautstärke; beide Motoren sind beim Spielen aus. Gemessen am 15. Oktober 2026.
 # Das Rauschen entsteht hier mit numpy (kommt mit reachy-mini); die übrigen Dateien bleiben ohne Abhängigkeit testbar.
+# Die Handy-App liest über den Webserver der App (Port 8042, `steuerung.py`) die Sender und stellt Lautstärke und
+# Stummschalter; als hörbar gilt ein Sender, sobald er mindestens zur Hälfte gegen das Rauschen steht.
 
 import logging
 import math
@@ -25,6 +27,7 @@ from reachy_mini import ReachyMini, ReachyMiniApp
 from radio_lola.abstimmung import angleichen, gerichtet, lautstaerke, pegel
 from radio_lola.antennen import dauer, heimweg
 from radio_lola.einstellungen import Radioeinstellungen, laden
+from radio_lola.steuerung import Regler, routen_anlegen
 from radio_lola.strom import ABTASTRATE, BYTES_JE_WERT, Strom, fehlende_faehigkeiten
 
 BLOCK = 1024  # Abtastwerte je Schub, 64 ms
@@ -60,7 +63,7 @@ def mischen(strom: Strom | None, anteil: float, rauschen: np.ndarray, laut: np.n
     return np.clip((anteil * musik + (1 - anteil) * rauschen) * laut, -1, 1).astype(np.float32)
 
 
-def spielen(mini: ReachyMini, e: Radioeinstellungen, ende: threading.Event,
+def spielen(mini: ReachyMini, e: Radioeinstellungen, ende: threading.Event, regler: Regler,
             neuer_strom: Callable[[str], Strom] | None = None) -> None:
     oeffnen = neuer_strom or Strom
     zufall, aktiv, strom, laut = np.random.default_rng(), None, None, 0.0
@@ -76,7 +79,8 @@ def spielen(mini: ReachyMini, e: Radioeinstellungen, ende: threading.Event,
                 if strom is not None:
                     log.info("Radio: Sender %s", e.sender[sender][0])
                     strom.starten()
-            neu = angleichen(laut, lautstaerke(winkel[LAUTSTAERKE]) * e.lautstaerke)
+            regler.sender_melden(sender if anteil >= 0.5 else None)
+            neu = angleichen(laut, lautstaerke(winkel[LAUTSTAERKE]) * e.lautstaerke * regler.faktor())
             rauschen = zufall.standard_normal(BLOCK, dtype=np.float32) * np.float32(RAUSCHEN)
             verlauf = np.linspace(laut, neu, BLOCK, dtype=np.float32)  # innerhalb des Blocks gleitend, ohne Knacken
             mini.media.push_audio_sample(mischen(strom, anteil, rauschen, verlauf))
@@ -92,13 +96,16 @@ def spielen(mini: ReachyMini, e: Radioeinstellungen, ende: threading.Event,
 
 
 class RadioLola(ReachyMiniApp):
-    custom_app_url: str | None = None  # keine Einstellungsseite; die Einstellungen stehen in einstellungen.toml
+    custom_app_url: str | None = "http://0.0.0.0:8042"  # Webserver für die Handy-App (`steuerung.py`)
 
     def run(self, reachy_mini: ReachyMini, stop_event: threading.Event) -> None:
         # Meldungen nach stdout; stderr bleibt für Fehler, deren letzte Zeilen der Daemon als Grund des Abbruchs meldet.
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s", stream=sys.stdout)
         e = laden()
         log.info("Radio: gestartet, %d Sender", len(e.sender))
+        regler = Regler([name for name, _ in e.sender])
+        if self.settings_app is not None:
+            routen_anlegen(self.settings_app, regler)
         try:
             fehlt = fehlende_faehigkeiten()
         except Exception as fehler:  # nur eine Auskunft fürs Protokoll, darf den Start nicht verhindern
@@ -108,7 +115,7 @@ class RadioLola(ReachyMiniApp):
         try:
             wecken(reachy_mini)
             reachy_mini.media.start_playing()
-            spielen(reachy_mini, e, stop_event)
+            spielen(reachy_mini, e, stop_event, regler)
         finally:
             heimholen(reachy_mini)
             reachy_mini.media.stop_playing()

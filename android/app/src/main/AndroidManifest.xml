@@ -5,7 +5,7 @@
 
     <!-- Der Daemon des Roboters spricht nur unverschlüsseltes HTTP im Heimnetz. -->
     <application
-        android:icon="@drawable/radio"
+        android:icon="@mipmap/ic_launcher"
         android:label="Radio LoLa"
         android:theme="@android:style/Theme.Material.Light"
         android:usesCleartextTraffic="true">

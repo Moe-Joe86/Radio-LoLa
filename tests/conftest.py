@@ -8,6 +8,7 @@ import types
 class _ReachyMiniApp:
     def __init__(self) -> None:
         self.stop_event = threading.Event()
+        self.settings_app = None
 
     def stop(self) -> None:
         self.stop_event.set()

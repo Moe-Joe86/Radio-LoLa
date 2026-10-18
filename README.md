@@ -12,7 +12,11 @@ So geht es im Alltag:
    - die rechte Antenne des Roboters (von vorn gesehen **links**) sucht Sender, dazwischen rauscht es,
    - die linke Antenne des Roboters (von vorn gesehen **rechts**) stellt die Lautstärke: oben ist leise, gegen den
      Uhrzeigersinn wird es lauter.
-5. **Radio stoppen** drücken. Die Antennen fahren nacheinander heim, die Motoren werden wieder eingeschaltet.
+5. In der Handy-App stehen die Sender untereinander; der gerade hörbare ist mit ▶ markiert. Darunter liegt ein
+   Lautstärkeregler mit **Stumm**-Knopf. Er wirkt zusätzlich zur Lautstärke-Antenne (Antenne × Handy) und bleibt
+   auch nach einem Neustart des Radios so eingestellt. Regler und Markierung gehen nur, solange das Radio läuft;
+   sonst zeigt die App die zuletzt gemeldete Senderliste blass an.
+6. **Radio stoppen** drücken. Die Antennen fahren nacheinander heim, die Motoren werden wieder eingeschaltet.
 
 **Nicht gleichzeitig mit LoLa benutzen.**
 
@@ -98,10 +102,13 @@ drücken. Nach etwa fünf Minuten ist ein neues Release gebaut (unter **Actions*
   nach Ende des Streams verbindet er neu.
 - **Rechenlast** des Mischens (Rauschen, Lautstärke): 38 µs je Tonblock von 64 ms auf einem PC, also unter 0,1 %.
 - **Installationsskript**: auf einem PC durchgespielt, auch der Fall ohne vorhandene App-Umgebung.
-- **Tests ohne Hardware**: 108 Python-Tests (Abstimmung, Heimweg, Strom, Einstellungen, Ablauf mit Attrappen-Roboter)
-  und 6 Tests der Handy-App-Logik; laufen bei jedem Push auf GitHub.
+- **Tests ohne Hardware**: 114 Python-Tests (Abstimmung, Heimweg, Strom, Einstellungen, Steuerung, Ablauf mit
+  Attrappen-Roboter) und 8 Tests der Handy-App-Logik; laufen bei jedem Push auf GitHub.
 - **Pfade der Handy-App** aus dem Daemon-Code und der Doku: `GET /api/apps/current-app-status`,
-  `POST /api/apps/start-app/radio_lola`, `POST /api/apps/stop-current-app`.
+  `POST /api/apps/start-app/radio_lola`, `POST /api/apps/stop-current-app`. Senderliste, Lautstärke und Stumm laufen
+  über den Webserver der Radio-App auf Port 8042 (`GET /radio`, `POST /radio/lautstaerke`, `POST /radio/stumm`),
+  den Pollens App-Gerüst für App-Einstellungen vorsieht; im Attrappen-Modus des Daemons geprüft. Den Lautstärke-Weg
+  des Daemons nehme ich nicht: Er spielt bei jeder Änderung einen Testton.
 
 ### Erst am echten Roboter zu testen
 

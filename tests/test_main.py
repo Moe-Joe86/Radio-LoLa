@@ -6,6 +6,7 @@ import pytest
 
 from radio_lola import main
 from radio_lola.einstellungen import Radioeinstellungen
+from radio_lola.steuerung import Regler
 
 GRAD = math.pi / 180
 
@@ -78,8 +79,13 @@ class Strom:
 
 
 @pytest.fixture(autouse=True)
-def leere_stroeme():
+def leere_stroeme(monkeypatch, tmp_path):
     Strom.alle = []
+    monkeypatch.setattr(Regler.__init__, "__defaults__", (tmp_path / "regler.json",))
+
+
+def regler(namen=("Eins",)) -> Regler:
+    return Regler(list(namen))
 
 
 EIN_SENDER = Radioeinstellungen(sender=[("Eins", "https://eins.example/")], lautstaerke=1.0, bereich=360,
@@ -105,7 +111,7 @@ def test_wecken_holt_heim_weckt_und_gibt_die_antennen_frei():
 def test_spielen_mischt_sender_und_lautstaerke_weich():
     ende = threading.Event()
     mini = Mini(90, -180, Medien(ende, 5))  # Sender 0 in der Feldmitte, Lautstärke halb
-    main.spielen(mini, EIN_SENDER, ende, Strom)
+    main.spielen(mini, EIN_SENDER, ende, regler(), Strom)
     bloecke = mini.media.gespielt
     assert len(bloecke) == 5 and all(b.dtype == np.float32 and b.shape == (main.BLOCK,) for b in bloecke)
     assert bloecke[0][0] == 0.0  # beginnt still und wird je Block um höchstens 0,05 lauter
@@ -118,7 +124,7 @@ def test_im_rauschfeld_nur_rauschen():
     """Der nächste Sender läuft schon mit, ist aber nicht zu hören: der Block ist reines Rauschen um null."""
     ende = threading.Event()
     mini = Mini(270, -270, Medien(ende, 20))
-    main.spielen(mini, EIN_SENDER, ende, Strom)
+    main.spielen(mini, EIN_SENDER, ende, regler(), Strom)
     letzter = mini.media.gespielt[-1]
     assert abs(float(np.mean(letzter))) < 0.05 < float(np.std(letzter))
 
@@ -132,7 +138,7 @@ def test_senderwechsel_beendet_den_alten_strom():
             mini.antennen[main.SUCHE] = 225 * GRAD  # Mitte von Sender 1 bei vier Feldern
 
     mini.media = Medien(ende, 4, drehen)
-    main.spielen(mini, ZWEI_SENDER, ende, Strom)
+    main.spielen(mini, ZWEI_SENDER, ende, regler(("Eins", "Zwei")), Strom)
     assert [s.adresse for s in Strom.alle] == ["https://eins.example/", "https://zwei.example/"]
     assert all(s.beendet for s in Strom.alle)
 
@@ -183,3 +189,30 @@ def test_fehlerhafte_einstellungen_bewegen_nichts(monkeypatch, tmp_path):
     with pytest.raises(ValueError, match="richtung"):
         app.run(mini, app.stop_event)
     assert mini.protokoll == []
+
+
+def test_handy_lautstaerke_und_stumm_wirken_zusaetzlich_zur_antenne():
+    ende = threading.Event()
+    mini = Mini(90, -180, Medien(ende, 5))  # Antenne halb
+    halb = regler()
+    halb.lautstaerke_setzen(50)
+    main.spielen(mini, EIN_SENDER, ende, halb, Strom)
+    assert mini.media.gespielt[-1][-1] == pytest.approx(0.5 * 0.25)  # 5 Schritte zu 0,05, Ziel 0,25 erreicht
+    ende.clear()
+    mini.media = Medien(ende, 3)
+    still = regler()
+    still.stumm_setzen(True)
+    main.spielen(mini, EIN_SENDER, ende, still, Strom)
+    assert all(float(np.max(np.abs(b))) == 0.0 for b in mini.media.gespielt)
+
+
+def test_meldet_hoerbaren_sender_und_rauschen():
+    ende = threading.Event()
+    r = regler(("Eins", "Zwei"))
+    mini = Mini(225, -90, Medien(ende, 2))  # Mitte von Sender 1
+    main.spielen(mini, ZWEI_SENDER, ende, r, Strom)
+    assert r.zustand()["aktiv"] == 1
+    ende.clear()
+    mini = Mini(135, -90, Medien(ende, 2))  # Mitte eines Rauschfelds
+    main.spielen(mini, ZWEI_SENDER, ende, r, Strom)
+    assert r.zustand()["aktiv"] is None
