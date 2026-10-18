@@ -17,8 +17,8 @@ ueberblendung_grad = 6
 
 # Sender: jeder Sender ist ein Block aus drei Zeilen ([[sender]], name, adresse), und diese Blöcke stehen am Ende
 # der Datei. Die Adresse ist der direkte Stream (beginnt mit http:// oder https://), am besten MP3.
-# Die Reihenfolge der Blöcke ist die Reihenfolge auf der Antenne. Die vier WDR-Sender stammen aus LoLa
-# (.env.example, dort am PC geprüft).
+# Die Reihenfolge der Blöcke ist die Reihenfolge auf der Antenne. WDR 2, 1LIVE, WDR 4 und WDR 5 stammen aus LoLa
+# (.env.example, dort am PC geprüft); WDR 3 folgt demselben Adressmuster des WDR, ist aber ungeprüft.
 
 [[sender]]
 name = "WDR 2"
@@ -27,6 +27,10 @@ adresse = "https://wdr-wdr2-rheinland.icecastssl.wdr.de/wdr/wdr2/rheinland/mp3/1
 [[sender]]
 name = "1LIVE"
 adresse = "https://wdr-1live-live.icecastssl.wdr.de/wdr/1live/live/mp3/128/stream.mp3"
+
+[[sender]]
+name = "WDR 3"
+adresse = "https://wdr-wdr3-live.icecastssl.wdr.de/wdr/wdr3/live/mp3/128/stream.mp3"
 
 [[sender]]
 name = "WDR 4"

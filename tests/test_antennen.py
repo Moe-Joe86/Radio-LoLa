@@ -1,6 +1,16 @@
 import pytest
 
-from radio_lola.antennen import LINKS, RECHTS, dauer, heimweg, nach_oben, streift_innen, zeigt_nach_innen, zuege
+from radio_lola.antennen import (
+    LINKS,
+    RECHTS,
+    bester_weg,
+    dauer,
+    faehrt_hinein,
+    heimweg,
+    nach_oben,
+    zeigt_nach_innen,
+    zuege,
+)
 
 
 @pytest.mark.parametrize(("index", "roh", "innen"), [
@@ -52,27 +62,28 @@ def test_dauer_hoechstens_eine_runde_je_sekunde():
     assert dauer((0.0, 0.0), (0.0, 10.0)) == 0.3
 
 
-@pytest.mark.parametrize(("index", "von", "nach", "streift"), [
-    (RECHTS, 270, 350, False), (RECHTS, 350, 370, True), (RECHTS, -10, -170, False), (RECHTS, 200, 900, True),
-    (LINKS, 10, 170, False), (LINKS, 170, 190, True), (LINKS, -10, 10, True), (LINKS, 360, 540, False),
+@pytest.mark.parametrize(("index", "von", "nach", "hinein"), [
+    (RECHTS, 270, 350, False), (RECHTS, 350, 370, True), (RECHTS, 90, 200, False), (RECHTS, 200, 900, True),
+    (RECHTS, 10, 30, True), (LINKS, 10, 170, False), (LINKS, 170, 190, True), (LINKS, 270, 90, False),
+    (LINKS, 360, 540, False),
 ])
-def test_streift_innen(index, von, nach, streift):
-    assert streift_innen(index, von, nach) is streift
+def test_faehrt_hinein_nur_hinausfahren_ist_harmlos(index, von, nach, hinein):
+    assert faehrt_hinein(index, von, nach) is hinein
 
 
-def test_zug_ohne_gefahr_bewegt_nur_die_eine_antenne():
-    assert zuege(RECHTS, 225.0, 10.0, 30.0) == [(225.0, 30.0)]
-    assert zuege(LINKS, 270.0, 300.0, 90.0) == [(300.0, 270.0)]
+def test_fahrt_ohne_gefahr_bewegt_nur_die_eine_antenne():
+    assert zuege(RECHTS, 225.0, 10.0, 30.0) == [(RECHTS, 225.0)]
+    assert zuege(LINKS, 270.0, 300.0, 90.0) == [(LINKS, 270.0)]
     assert zuege(LINKS, 90.0, 300.0, 90.0) == []
 
 
-def test_zug_durch_die_mitte_parkt_die_innere_andere_antenne():
-    """Rechts soll durch seine innere Hälfte, links zeigt nach innen: links parkt, rechts fährt, links kehrt zurück."""
-    assert zuege(RECHTS, 405.0, 300.0, 270.0) == [(300.0, 0.0), (405.0, 0.0), (405.0, 270.0)]
+def test_fahrt_nach_innen_parkt_die_innere_andere_antenne():
+    """Rechts soll in seine innere Hälfte, links zeigt nach innen: links parkt, rechts fährt, links kehrt zurück."""
+    assert zuege(RECHTS, 405.0, 300.0, 270.0) == [(LINKS, 0.0), (RECHTS, 405.0), (LINKS, 270.0)]
 
 
-def test_nie_beide_gleichzeitig_auch_vom_handy():
-    vorher = (1086.0, -1444.0)
-    for ziel in zuege(LINKS, -1200.0, *vorher):
-        assert sum(a != b for a, b in zip(vorher, ziel, strict=True)) == 1
-        vorher = ziel
+def test_bester_weg_nimmt_den_umweg_aussen_herum():
+    # Von 200° nach 340° (außen) direkt wäre außen; rückwärts über innen hieße parken
+    assert bester_weg(RECHTS, [340.0, -20.0], 200.0, 270.0) == [(RECHTS, 340.0)]
+    # Von 350° nach 190°: kurz vorwärts über 0° ginge durch innen, außen herum rückwärts ohne Parken
+    assert bester_weg(RECHTS, [550.0, 190.0], 350.0, 270.0) == [(RECHTS, 190.0)]

@@ -14,7 +14,9 @@ So geht es im Alltag:
      Uhrzeigersinn wird es lauter.
 5. Oder über das Handy: Einen Sender antippen, dann dreht der Roboter die Sender-Antenne genau auf diesen Sender.
    Den Lautstärkeregler loslassen, dann dreht er die Lautstärke-Antenne auf diesen Wert. Die Antennen stimmen also
-   immer mit dem Handy überein, und man kann jederzeit wieder von Hand weiterdrehen. Der **Stumm**-Knopf schaltet
+   immer mit dem Handy überein, und man kann jederzeit wieder von Hand weiterdrehen. Zeigt die andere Antenne gerade
+   nach innen und müsste die bewegte ebenfalls nach innen, parkt die andere kurz oben und kehrt danach zurück, damit
+   sich die Antennen nicht stoßen (gleiche Regel wie beim Heimfahren). Der **Stumm**-Knopf schaltet
    nur den Ton ab, ohne die Antenne zu bewegen. Der gerade hörbare Sender ist hervorgehoben. Ist das Radio aus,
    zeigt die App die zuletzt gemeldete Senderliste blass an.
 6. **Radio stoppen** drücken. Die Antennen fahren nacheinander heim, die Motoren werden wieder eingeschaltet.
@@ -101,7 +103,12 @@ drücken. Nach etwa fünf Minuten ist ein neues Release gebaut (unter **Actions*
   nach Ende des Streams verbindet er neu.
 - **Rechenlast** des Mischens (Rauschen, Lautstärke): 38 µs je Tonblock von 64 ms auf einem PC, also unter 0,1 %.
 - **Installationsskript**: auf einem PC durchgespielt, auch der Fall ohne vorhandene App-Umgebung.
-- **Tests ohne Hardware**: 139 Python-Tests (Abstimmung, Antennenfahrten, Strom, Einstellungen, Steuerung, Ablauf mit
+- **Fehler vom 18. Oktober behoben**: Die Lautstärke-Antenne bewegte sich manchmal nicht, dafür sprang sie beim
+  Senderwechsel. Ursache: Das Radio maß die Antennen zweimal und schloss aus einem Unterschied der Messungen, welche
+  Antenne fahren soll; am Roboter schwanken zwei Messungen immer um Bruchteile eines Grades, dann bekam die falsche
+  Antenne Kraft. Jetzt nennt jede Fahrt ihre Antenne ausdrücklich, und vor jeder Fahrt wird neu gemessen. Ein Test
+  stellt das Messrauschen nach; mit dem alten Code schlägt er fehl, mit dem neuen nicht.
+- **Tests ohne Hardware**: 145 Python-Tests (Abstimmung, Antennenfahrten, Strom, Einstellungen, Steuerung, Ablauf mit
   Attrappen-Roboter) und 8 Tests der Handy-App-Logik; laufen bei jedem Push auf GitHub.
 - **Pfade der Handy-App** aus dem Daemon-Code und der Doku: `GET /api/apps/current-app-status`,
   `POST /api/apps/start-app/radio_lola`, `POST /api/apps/stop-current-app`. Senderliste, Senderwahl, Lautstärke und Stumm
@@ -115,8 +122,8 @@ drücken. Nach etwa fünf Minuten ist ein neues Release gebaut (unter **Actions*
 
 ### Erst am echten Roboter zu testen
 
-- Die vier Sender (WDR 2, 1LIVE, WDR 4, WDR 5) sind dieselben wie in LoLa und waren dort am PC geprüft; auf dem
-  Roboter selbst sind sie ungetestet. Ob GStreamer auf dem Roboter HTTPS-Streams und MP3/AAC entschlüsseln kann, ist nicht
+- Sender: WDR 2, 1LIVE, WDR 4 und WDR 5 sind dieselben wie in LoLa und waren dort am PC geprüft. WDR 3 folgt dem
+  Adressmuster des WDR, ist aber ungeprüft. Ob GStreamer auf dem Roboter HTTPS-Streams und MP3/AAC entschlüsseln kann, ist nicht
   gemessen; das Radio schreibt beim Start ins Protokoll, falls etwas fehlt („GStreamer kann auf diesem Roboter
   nicht: …“). MP3-Sender sind die sicherere Wahl.
 - Ob es auf dem Raspberry Pi 4 ohne Aussetzer läuft. Vermutung: ja, das Mischen kostet fast nichts, das Entschlüsseln

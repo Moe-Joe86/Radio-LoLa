@@ -28,7 +28,7 @@ import numpy as np
 from reachy_mini import ReachyMini, ReachyMiniApp
 
 from radio_lola.abstimmung import angleichen, gerichtet, lautstaerke, pegel, ziel_lautstaerke, ziel_sender
-from radio_lola.antennen import dauer, heimweg, zuege
+from radio_lola.antennen import bester_weg, dauer, heimweg, zuege
 from radio_lola.einstellungen import Radioeinstellungen, laden
 from radio_lola.steuerung import SENDER, Regler, routen_anlegen
 from radio_lola.strom import ABTASTRATE, BYTES_JE_WERT, Strom, fehlende_faehigkeiten
@@ -60,28 +60,36 @@ def wecken(mini: ReachyMini) -> None:
     log.info("Radio: geweckt, Antennen frei")
 
 
-def antennen_fahren(mini: ReachyMini, ziele: list[tuple[float, float]]) -> None:
-    """Fährt die Stellungen aus `antennen.zuege` ab; nur die bewegte Antenne hat dabei Kraft, danach ist sie frei."""
-    jetzt = tuple(math.degrees(w) for w in mini.get_present_antenna_joint_positions())
-    for ziel in ziele:
-        welche = ANTENNEN[0] if ziel[0] != jetzt[0] else ANTENNEN[1]
+def antennen_fahren(mini: ReachyMini, fahrten: list[tuple[int, float]]) -> None:
+    """Fährt die Fahrten aus `antennen.zuege` ab; nur die genannte Antenne hat dabei Kraft, danach ist sie wieder frei.
+
+    Vor jeder Fahrt wird neu gemessen: Die andere Antenne bekommt ihre gemessene Stellung als Ziel, nie einen
+    geplanten Wert, denn schon zwei Messungen derselben ruhenden Antenne weichen um Bruchteile eines Grades ab.
+    """
+    for welche, wohin in fahrten:
+        jetzt = [math.degrees(w) for w in mini.get_present_antenna_joint_positions()]
+        ziel = list(jetzt)
+        ziel[welche] = wohin
         mini.set_target(antennas=[math.radians(w) for w in jetzt])
         time.sleep(0.1)  # ein paar Takte des Daemons, damit das Ziel beim Motor ankommt
-        mini.enable_motors([welche])
-        mini.goto_target(antennas=[math.radians(w) for w in ziel], duration=dauer(jetzt, ziel), body_yaw=None)
-        mini.disable_motors([welche])
-        jetzt = ziel
+        mini.enable_motors([ANTENNEN[welche]])
+        try:
+            mini.goto_target(antennas=[math.radians(w) for w in ziel], duration=dauer(jetzt, ziel), body_yaw=None)
+        finally:
+            mini.disable_motors([ANTENNEN[welche]])
 
 
 def wunsch_ausfuehren(mini: ReachyMini, e: Radioeinstellungen, art: str, wert: float) -> None:
     jetzt = [math.degrees(w) for w in mini.get_present_antenna_joint_positions()]
     if art == SENDER:
-        index, ziel = SUCHE, ziel_sender(int(wert), len(e.sender), jetzt[SUCHE], e.bereich, e.richtung)
-        log.info("Radio: Handy wählt %s, Antenne fährt auf %.0f°", e.sender[int(wert)][0], ziel)
+        naechstes = ziel_sender(int(wert), len(e.sender), jetzt[SUCHE], e.bereich, e.richtung)
+        umweg = naechstes - 360.0 if naechstes > jetzt[SUCHE] else naechstes + 360.0
+        fahrten = bester_weg(SUCHE, [naechstes, umweg], *jetzt)
+        log.info("Radio: Handy wählt %s, Fahrten %s", e.sender[int(wert)][0], fahrten)
     else:
-        index, ziel = LAUTSTAERKE, ziel_lautstaerke(wert, jetzt[LAUTSTAERKE])
-        log.info("Radio: Handy stellt Lautstärke %.0f %%, Antenne fährt auf %.0f°", wert * 100, ziel)
-    antennen_fahren(mini, zuege(index, ziel, *jetzt))
+        fahrten = zuege(LAUTSTAERKE, ziel_lautstaerke(wert, jetzt[LAUTSTAERKE]), *jetzt)
+        log.info("Radio: Handy stellt Lautstärke %.0f %%, Fahrten %s", wert * 100, fahrten)
+    antennen_fahren(mini, fahrten)
 
 
 def fahrer(mini: ReachyMini, e: Radioeinstellungen, regler: Regler, ende: threading.Event) -> None:

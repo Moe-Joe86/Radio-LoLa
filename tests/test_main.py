@@ -33,33 +33,63 @@ class Medien:
 
 
 class Mini:
-    """Attrappe für `ReachyMini`: Antennen in Radiant, jede Bewegung landet im Protokoll."""
+    """Attrappe für `ReachyMini`, Antennen in Radiant, jede Bewegung landet im Protokoll.
 
-    def __init__(self, rechts: float, links: float, medien: Medien | None = None) -> None:
+    Wie am Roboter: Messungen schwanken um `zittern` Grad, nur Antennen mit Kraft folgen `goto_target`, und wer
+    einer Antenne Kraft gibt, deren Ziel nicht ihre Stellung ist, lässt sie springen (`spruenge`).
+    """
+
+    NAMEN = {"right_antenna": 0, "left_antenna": 1}
+
+    def __init__(self, rechts: float, links: float, medien: Medien | None = None, zittern: float = 0.0) -> None:
         self.antennen = [rechts * GRAD, links * GRAD]
+        self.ziel, self.kraft = list(self.antennen), [True, True]
+        self.zittern, self._messungen, self.spruenge = zittern, 0, []
         self.protokoll: list[tuple] = []
         self.media = medien
 
+    def _welche(self, ids) -> list[int]:
+        return [0, 1] if ids is None else [self.NAMEN[name] for name in ids]
+
     def enable_motors(self, ids=None) -> None:
         self.protokoll.append(("an", ids))
+        if ids is None:  # alle Motoren: der Daemon setzt vorher jedes Ziel auf die Stellung (Daemon-Code 1.12.0)
+            self.ziel = list(self.antennen)
+        for i in self._welche(ids):
+            if not self.kraft[i] and abs(self.ziel[i] - self.antennen[i]) > 0.5 * GRAD:
+                self.spruenge.append(i)
+                self.antennen[i] = self.ziel[i]
+            self.kraft[i] = True
 
     def disable_motors(self, ids=None) -> None:
         self.protokoll.append(("aus", ids))
+        for i in self._welche(ids):
+            self.kraft[i] = False
 
     def get_present_antenna_joint_positions(self) -> list[float]:
-        return list(self.antennen)
+        self._messungen += 1
+        rauschen = self.zittern * GRAD * (1 if self._messungen % 2 else -1)
+        return [w + rauschen for w in self.antennen]
 
     def set_target(self, head=None, antennas=None, body_yaw=None) -> None:
         self.protokoll.append(("ziel", tuple(round(w / GRAD, 1) for w in antennas)))
+        self.ziel = list(antennas)
 
     def goto_target(self, head=None, antennas=None, duration=0.5, body_yaw=0.0) -> None:
         assert head is None and body_yaw is None, "das Radio bewegt nur die Antennen"
         self.protokoll.append(("fahren", tuple(round(w / GRAD, 1) for w in antennas), round(duration, 2)))
-        self.antennen = list(antennas)
+        self.ziel = list(antennas)
+        for i in (0, 1):
+            if self.kraft[i]:
+                self.antennen[i] = antennas[i]
 
     def wake_up(self) -> None:
         self.protokoll.append(("wecken",))
         self.antennen = [-10 * GRAD, 10 * GRAD]
+        self.ziel = list(self.antennen)
+
+    def grad(self) -> tuple[float, float]:
+        return tuple(round(w / GRAD, 1) for w in self.antennen)
 
 
 class Strom:
@@ -215,32 +245,64 @@ def test_meldet_hoerbaren_sender_und_rauschen():
     assert r.zustand()["aktiv"] is None
 
 
-def test_handy_waehlt_sender_die_sender_antenne_faehrt_mit_kraft_nur_dabei():
-    mini = Mini(10, 30)  # Lautstärke-Antenne zeigt nach außen: ein Zug genügt
+def frei(rechts: float, links: float, zittern: float = 0.0) -> Mini:
+    """Wie beim Spielen: beide Antennen ohne Kraft, ihr letztes Ziel war die Grundstellung."""
+    mini = Mini(rechts, links, zittern=zittern)
+    mini.ziel, mini.kraft = [0.0, 0.0], [False, False]
+    return mini
+
+
+def test_handy_waehlt_sender_nur_die_sender_antenne_bekommt_kraft():
+    mini = frei(10, 30)  # Lautstärke-Antenne zeigt nach außen: eine Fahrt genügt
     main.wunsch_ausfuehren(mini, ZWEI_SENDER, "sender", 1)
-    # Mitte von Sender 1 liegt bei 225°, also −135°: kürzester Weg rückwärts über null
+    # Mitte von Sender 1 liegt bei 225°, also −135°: kürzester Weg rückwärts über null, rechts ist dabei innen erlaubt
     assert mini.protokoll == [("ziel", (10.0, 30.0)), ("an", ["right_antenna"]), ("fahren", (-135.0, 30.0), 0.4),
                               ("aus", ["right_antenna"])]
+    assert mini.grad() == (-135.0, 30.0) and mini.spruenge == []
 
 
-def test_handy_stellt_lautstaerke_die_lautstaerke_antenne_faehrt():
-    mini = Mini(300, 90)  # Lautstärke 75 %, Sender-Antenne außen
+def test_handy_stellt_lautstaerke_nur_die_lautstaerke_antenne_faehrt():
+    mini = frei(300, 90)  # Lautstärke 75 %, Sender-Antenne außen
     main.wunsch_ausfuehren(mini, EIN_SENDER, "lautstaerke", 0.25)
     assert mini.protokoll[1:] == [("an", ["left_antenna"]), ("fahren", (300.0, 270.0), 0.5),
                                   ("aus", ["left_antenna"])]
-    assert main.lautstaerke(mini.antennen[main.LAUTSTAERKE] / GRAD) == pytest.approx(0.25)
+    assert main.lautstaerke(mini.grad()[main.LAUTSTAERKE]) == pytest.approx(0.25)
 
 
-def test_innere_antenne_parkt_waehrend_die_andere_durch_die_mitte_faehrt():
-    mini = Mini(300, 270)  # Lautstärke zeigt nach innen, Sender 0 liegt rechts innen
+@pytest.mark.parametrize(("art", "wert", "bewegt"), [("lautstaerke", 0.8, 1), ("lautstaerke", 0.3, 1),
+                                                     ("sender", 1, 0), ("sender", 0, 0)])
+def test_messrauschen_verwechselt_die_antennen_nicht(art, wert, bewegt):
+    """Fehler vom 18. Oktober: Zwei Messungen derselben ruhenden Antenne unterscheiden sich um Bruchteile eines Grades;
+    das Radio gab dann der falschen Antenne Kraft. Jetzt fährt nur die gemeinte, keine springt."""
+    mini = frei(300, 120, zittern=0.04)
+    vorher = mini.grad()
+    main.wunsch_ausfuehren(mini, ZWEI_SENDER, art, wert)
+    eingeschaltet = {tuple(eintrag[1]) for eintrag in mini.protokoll if eintrag[0] == "an"}
+    assert eingeschaltet == {(main.ANTENNEN[bewegt],)}
+    assert mini.spruenge == []
+    assert mini.grad()[1 - bewegt] == vorher[1 - bewegt]
+    assert mini.grad()[bewegt] != vorher[bewegt]
+
+
+def test_innere_antenne_parkt_nur_wenn_es_keinen_weg_aussen_herum_gibt():
+    mini = frei(300, 270, zittern=0.04)  # Lautstärke zeigt nach innen, Sender 0 liegt rechts innen bei 45°
     main.wunsch_ausfuehren(mini, ZWEI_SENDER, "sender", 0)
-    fahrten = [eintrag for eintrag in mini.protokoll if eintrag[0] in ("an", "fahren")]
-    assert fahrten == [("an", ["left_antenna"]), ("fahren", (300.0, 0.0), 0.75), ("an", ["right_antenna"]),
-                       ("fahren", (405.0, 0.0), 0.3), ("an", ["left_antenna"]), ("fahren", (405.0, 270.0), 0.75)]
+    eingeschaltet = [eintrag[1][0] for eintrag in mini.protokoll if eintrag[0] == "an"]
+    assert eingeschaltet == ["left_antenna", "right_antenna", "left_antenna"]
+    assert mini.spruenge == []
+    assert mini.grad() == (405.0, 270.0)
+
+
+def test_sender_aussen_faehrt_aussen_herum_statt_zu_parken():
+    zwei = Radioeinstellungen(sender=[("Eins", "a"), ("Zwei", "b")], lautstaerke=1.0, bereich=360, richtung=1,
+                              ueberblendung=0)
+    mini = frei(200, 270)  # Lautstärke innen; Sender 1 bei 225° liegt außen, der kurze Weg führt nicht durch innen
+    main.wunsch_ausfuehren(mini, zwei, "sender", 1)
+    assert [eintrag[1][0] for eintrag in mini.protokoll if eintrag[0] == "an"] == ["right_antenna"]
 
 
 def test_fahrer_setzt_wuensche_um_und_endet_mit_dem_radio():
-    ende, r, mini = threading.Event(), regler(("Eins", "Zwei")), Mini(10, 30)
+    ende, r, mini = threading.Event(), regler(("Eins", "Zwei")), frei(10, 30)
     faden = threading.Thread(target=main.fahrer, args=(mini, ZWEI_SENDER, r, ende))
     faden.start()
     r.wunsch_sender(1)
@@ -251,4 +313,4 @@ def test_fahrer_setzt_wuensche_um_und_endet_mit_dem_radio():
     ende.set()
     faden.join(timeout=2)
     assert not faden.is_alive()
-    assert ("fahren", (-135.0, 30.0), 0.4) in mini.protokoll
+    assert mini.grad() == (-135.0, 30.0)
