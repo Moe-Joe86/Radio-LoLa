@@ -10,8 +10,11 @@ Darf nicht: Ton wiederholen, den Reachy mit ausgeschalteten Antennen zurücklass
 # Antennen im SDK: [rechts, links] in Radiant. SDK-rechts (von vorn links) sucht Sender, SDK-links (von vorn
 # rechts) ist die Lautstärke; beide Motoren sind beim Spielen aus. Gemessen am 15. Oktober 2026.
 # Das Rauschen entsteht hier mit numpy (kommt mit reachy-mini); die übrigen Dateien bleiben ohne Abhängigkeit testbar.
-# Die Handy-App liest über den Webserver der App (Port 8042, `steuerung.py`) die Sender und stellt Lautstärke und
-# Stummschalter; als hörbar gilt ein Sender, sobald er mindestens zur Hälfte gegen das Rauschen steht.
+# Die Handy-App spricht mit dem Webserver der App (Port 8042, `steuerung.py`). Wählt sie einen Sender oder eine
+# Lautstärke, fährt der Faden `fahrer` die passende Antenne dorthin; das Radio selbst hört nur auf die Antennen.
+# Vor dem Einschalten eines Antennenmotors wird sein Ziel auf die gemessene Stellung gesetzt: Der Daemon schreibt
+# das Ziel auch bei ausgeschaltetem Motor weiter, sonst spränge die Antenne auf das alte Ziel (Daemon-Code 1.12.0).
+# Als hörbar gilt ein Sender, sobald er mindestens zur Hälfte gegen das Rauschen steht.
 
 import logging
 import math
@@ -24,10 +27,10 @@ from collections.abc import Callable
 import numpy as np
 from reachy_mini import ReachyMini, ReachyMiniApp
 
-from radio_lola.abstimmung import angleichen, gerichtet, lautstaerke, pegel
-from radio_lola.antennen import dauer, heimweg
+from radio_lola.abstimmung import angleichen, gerichtet, lautstaerke, pegel, ziel_lautstaerke, ziel_sender
+from radio_lola.antennen import dauer, heimweg, zuege
 from radio_lola.einstellungen import Radioeinstellungen, laden
-from radio_lola.steuerung import Regler, routen_anlegen
+from radio_lola.steuerung import SENDER, Regler, routen_anlegen
 from radio_lola.strom import ABTASTRATE, BYTES_JE_WERT, Strom, fehlende_faehigkeiten
 
 BLOCK = 1024  # Abtastwerte je Schub, 64 ms
@@ -57,6 +60,42 @@ def wecken(mini: ReachyMini) -> None:
     log.info("Radio: geweckt, Antennen frei")
 
 
+def antennen_fahren(mini: ReachyMini, ziele: list[tuple[float, float]]) -> None:
+    """Fährt die Stellungen aus `antennen.zuege` ab; nur die bewegte Antenne hat dabei Kraft, danach ist sie frei."""
+    jetzt = tuple(math.degrees(w) for w in mini.get_present_antenna_joint_positions())
+    for ziel in ziele:
+        welche = ANTENNEN[0] if ziel[0] != jetzt[0] else ANTENNEN[1]
+        mini.set_target(antennas=[math.radians(w) for w in jetzt])
+        time.sleep(0.1)  # ein paar Takte des Daemons, damit das Ziel beim Motor ankommt
+        mini.enable_motors([welche])
+        mini.goto_target(antennas=[math.radians(w) for w in ziel], duration=dauer(jetzt, ziel), body_yaw=None)
+        mini.disable_motors([welche])
+        jetzt = ziel
+
+
+def wunsch_ausfuehren(mini: ReachyMini, e: Radioeinstellungen, art: str, wert: float) -> None:
+    jetzt = [math.degrees(w) for w in mini.get_present_antenna_joint_positions()]
+    if art == SENDER:
+        index, ziel = SUCHE, ziel_sender(int(wert), len(e.sender), jetzt[SUCHE], e.bereich, e.richtung)
+        log.info("Radio: Handy wählt %s, Antenne fährt auf %.0f°", e.sender[int(wert)][0], ziel)
+    else:
+        index, ziel = LAUTSTAERKE, ziel_lautstaerke(wert, jetzt[LAUTSTAERKE])
+        log.info("Radio: Handy stellt Lautstärke %.0f %%, Antenne fährt auf %.0f°", wert * 100, ziel)
+    antennen_fahren(mini, zuege(index, ziel, *jetzt))
+
+
+def fahrer(mini: ReachyMini, e: Radioeinstellungen, regler: Regler, ende: threading.Event) -> None:
+    """Eigener Faden: setzt Wünsche vom Handy um, damit der Ton währenddessen weiterläuft."""
+    while not ende.is_set():
+        wunsch = regler.wunsch_holen(0.2)
+        if wunsch is None:
+            continue
+        try:
+            wunsch_ausfuehren(mini, e, *wunsch)
+        except Exception:  # ein misslungener Wunsch darf das Radio nicht beenden
+            log.exception("Radio: Antennenfahrt misslungen")
+
+
 def mischen(strom: Strom | None, anteil: float, rauschen: np.ndarray, laut: np.ndarray) -> np.ndarray:
     musik = np.zeros(BLOCK, np.float32) if strom is None else np.frombuffer(strom.lesen(BLOCK * BYTES_JE_WERT),
                                                                          np.float32)
@@ -79,8 +118,8 @@ def spielen(mini: ReachyMini, e: Radioeinstellungen, ende: threading.Event, regl
                 if strom is not None:
                     log.info("Radio: Sender %s", e.sender[sender][0])
                     strom.starten()
-            regler.sender_melden(sender if anteil >= 0.5 else None)
-            neu = angleichen(laut, lautstaerke(winkel[LAUTSTAERKE]) * e.lautstaerke * regler.faktor())
+            regler.melden(sender if anteil >= 0.5 else None, lautstaerke(winkel[LAUTSTAERKE]))
+            neu = angleichen(laut, 0.0 if regler.stumm() else lautstaerke(winkel[LAUTSTAERKE]) * e.lautstaerke)
             rauschen = zufall.standard_normal(BLOCK, dtype=np.float32) * np.float32(RAUSCHEN)
             verlauf = np.linspace(laut, neu, BLOCK, dtype=np.float32)  # innerhalb des Blocks gleitend, ohne Knacken
             mini.media.push_audio_sample(mischen(strom, anteil, rauschen, verlauf))
@@ -112,11 +151,16 @@ class RadioLola(ReachyMiniApp):
             fehlt = [f"Prüfung unmöglich ({fehler})"]
         if fehlt:
             log.warning("Radio: GStreamer kann auf diesem Roboter nicht: %s", ", ".join(fehlt))
+        faden = threading.Thread(target=fahrer, args=(reachy_mini, e, regler, stop_event), name="fahrer")
         try:
             wecken(reachy_mini)
             reachy_mini.media.start_playing()
+            faden.start()
             spielen(reachy_mini, e, stop_event, regler)
         finally:
+            stop_event.set()
+            if faden.is_alive():
+                faden.join(timeout=10)  # eine laufende Fahrt zu Ende fahren lassen
             heimholen(reachy_mini)
             reachy_mini.media.stop_playing()
             log.info("Radio: beendet, Antennen daheim, Motoren an")

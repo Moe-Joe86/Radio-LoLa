@@ -12,13 +12,12 @@ So geht es im Alltag:
    - die rechte Antenne des Roboters (von vorn gesehen **links**) sucht Sender, dazwischen rauscht es,
    - die linke Antenne des Roboters (von vorn gesehen **rechts**) stellt die Lautstärke: oben ist leise, gegen den
      Uhrzeigersinn wird es lauter.
-5. In der Handy-App stehen die Sender untereinander; der gerade hörbare ist mit ▶ markiert. Darunter liegt ein
-   Lautstärkeregler mit **Stumm**-Knopf. Er wirkt zusätzlich zur Lautstärke-Antenne (Antenne × Handy) und bleibt
-   auch nach einem Neustart des Radios so eingestellt. Regler und Markierung gehen nur, solange das Radio läuft;
-   sonst zeigt die App die zuletzt gemeldete Senderliste blass an.
+5. Oder über das Handy: Einen Sender antippen, dann dreht der Roboter die Sender-Antenne genau auf diesen Sender.
+   Den Lautstärkeregler loslassen, dann dreht er die Lautstärke-Antenne auf diesen Wert. Die Antennen stimmen also
+   immer mit dem Handy überein, und man kann jederzeit wieder von Hand weiterdrehen. Der **Stumm**-Knopf schaltet
+   nur den Ton ab, ohne die Antenne zu bewegen. Der gerade hörbare Sender ist hervorgehoben. Ist das Radio aus,
+   zeigt die App die zuletzt gemeldete Senderliste blass an.
 6. **Radio stoppen** drücken. Die Antennen fahren nacheinander heim, die Motoren werden wieder eingeschaltet.
-
-**Nicht gleichzeitig mit LoLa benutzen.**
 
 ## a) Android-App herunterladen
 
@@ -102,19 +101,22 @@ drücken. Nach etwa fünf Minuten ist ein neues Release gebaut (unter **Actions*
   nach Ende des Streams verbindet er neu.
 - **Rechenlast** des Mischens (Rauschen, Lautstärke): 38 µs je Tonblock von 64 ms auf einem PC, also unter 0,1 %.
 - **Installationsskript**: auf einem PC durchgespielt, auch der Fall ohne vorhandene App-Umgebung.
-- **Tests ohne Hardware**: 114 Python-Tests (Abstimmung, Heimweg, Strom, Einstellungen, Steuerung, Ablauf mit
+- **Tests ohne Hardware**: 139 Python-Tests (Abstimmung, Antennenfahrten, Strom, Einstellungen, Steuerung, Ablauf mit
   Attrappen-Roboter) und 8 Tests der Handy-App-Logik; laufen bei jedem Push auf GitHub.
 - **Pfade der Handy-App** aus dem Daemon-Code und der Doku: `GET /api/apps/current-app-status`,
-  `POST /api/apps/start-app/radio_lola`, `POST /api/apps/stop-current-app`. Senderliste, Lautstärke und Stumm laufen
-  über den Webserver der Radio-App auf Port 8042 (`GET /radio`, `POST /radio/lautstaerke`, `POST /radio/stumm`),
-  den Pollens App-Gerüst für App-Einstellungen vorsieht; im Attrappen-Modus des Daemons geprüft. Den Lautstärke-Weg
+  `POST /api/apps/start-app/radio_lola`, `POST /api/apps/stop-current-app`. Senderliste, Senderwahl, Lautstärke und Stumm
+  laufen über den Webserver der Radio-App auf Port 8042 (`GET /radio`, `POST /radio/sender`, `/radio/lautstaerke`,
+  `/radio/stumm`), den Pollens App-Gerüst für App-Einstellungen vorsieht. Im Attrappen-Modus des Daemons geprüft:
+  Senderwahl und Lautstärke fahren die richtige Antenne ans richtige Ziel, das Radio meldet danach den gewählten
+  Sender und die gewählte Lautstärke.
+- **Antennen vom Handy ohne Zusammenstoß**: Es bewegt sich immer nur eine Antenne. Zeigt die andere nach innen und
+  müsste die bewegte durch ihre innere Hälfte, parkt die andere kurz oben und kehrt danach zurück (wie beim Heimweg). Den Lautstärke-Weg
   des Daemons nehme ich nicht: Er spielt bei jeder Änderung einen Testton.
 
 ### Erst am echten Roboter zu testen
 
-- Ob die Sender auf dem Roboter spielen. Aus meiner Umgebung waren die Radio-Server gesperrt; die vier
-  voreingestellten Adressen (Deutschlandfunk, Deutschlandfunk Kultur, Deutschlandfunk Nova, WDR 2) sind bekannte
-  Adressen, aber ungetestet. Ob GStreamer auf dem Roboter HTTPS-Streams und MP3/AAC entschlüsseln kann, ist nicht
+- Die vier Sender (WDR 2, 1LIVE, WDR 4, WDR 5) sind dieselben wie in LoLa und waren dort am PC geprüft; auf dem
+  Roboter selbst sind sie ungetestet. Ob GStreamer auf dem Roboter HTTPS-Streams und MP3/AAC entschlüsseln kann, ist nicht
   gemessen; das Radio schreibt beim Start ins Protokoll, falls etwas fehlt („GStreamer kann auf diesem Roboter
   nicht: …“). MP3-Sender sind die sicherere Wahl.
 - Ob es auf dem Raspberry Pi 4 ohne Aussetzer läuft. Vermutung: ja, das Mischen kostet fast nichts, das Entschlüsseln
@@ -123,6 +125,11 @@ drücken. Nach etwa fünf Minuten ist ein neues Release gebaut (unter **Actions*
 - Ob das Wecken und die Heimfahrt am echten Roboter so aussehen wie am 15. Oktober gemessen (im Attrappen-Modus
   stimmen nur die Befehle, nicht die Mechanik).
 - Ob dein Handy `reachy-mini.local` findet (sonst IP eintragen, siehe oben).
+- Antennenfahrten vom Handy: Für eine Fahrt bekommt nur die bewegte Antenne kurz Kraft, vorher wird ihr Ziel auf die
+  gemessene Stellung gesetzt, damit sie nicht springt. Im Attrappen-Modus stimmen die Befehle; ob die echte Antenne
+  dabei ruhig anfährt, zeigt erst der Roboter. Beim ersten Mal bitte zuschauen.
+- Zeigen am Ende beide Antennen nach innen (z. B. ein Sender rechts innen und eine Lautstärke unter 50 %), fährt
+  die zuletzt zurückkehrende Antenne neben einer inneren. Ob sich die Antennen dabei berühren können, weiß ich nicht.
 
 ## Aufbau
 

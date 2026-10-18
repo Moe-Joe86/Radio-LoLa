@@ -49,6 +49,9 @@ class Mini:
     def get_present_antenna_joint_positions(self) -> list[float]:
         return list(self.antennen)
 
+    def set_target(self, head=None, antennas=None, body_yaw=None) -> None:
+        self.protokoll.append(("ziel", tuple(round(w / GRAD, 1) for w in antennas)))
+
     def goto_target(self, head=None, antennas=None, duration=0.5, body_yaw=0.0) -> None:
         assert head is None and body_yaw is None, "das Radio bewegt nur die Antennen"
         self.protokoll.append(("fahren", tuple(round(w / GRAD, 1) for w in antennas), round(duration, 2)))
@@ -79,9 +82,8 @@ class Strom:
 
 
 @pytest.fixture(autouse=True)
-def leere_stroeme(monkeypatch, tmp_path):
+def leere_stroeme():
     Strom.alle = []
-    monkeypatch.setattr(Regler.__init__, "__defaults__", (tmp_path / "regler.json",))
 
 
 def regler(namen=("Eins",)) -> Regler:
@@ -191,19 +193,14 @@ def test_fehlerhafte_einstellungen_bewegen_nichts(monkeypatch, tmp_path):
     assert mini.protokoll == []
 
 
-def test_handy_lautstaerke_und_stumm_wirken_zusaetzlich_zur_antenne():
+def test_stumm_heisst_still_und_lautstaerke_kommt_von_der_antenne():
     ende = threading.Event()
-    mini = Mini(90, -180, Medien(ende, 5))  # Antenne halb
-    halb = regler()
-    halb.lautstaerke_setzen(50)
-    main.spielen(mini, EIN_SENDER, ende, halb, Strom)
-    assert mini.media.gespielt[-1][-1] == pytest.approx(0.5 * 0.25)  # 5 Schritte zu 0,05, Ziel 0,25 erreicht
-    ende.clear()
-    mini.media = Medien(ende, 3)
     still = regler()
     still.stumm_setzen(True)
+    mini = Mini(90, -180, Medien(ende, 3))
     main.spielen(mini, EIN_SENDER, ende, still, Strom)
     assert all(float(np.max(np.abs(b))) == 0.0 for b in mini.media.gespielt)
+    assert still.zustand()["lautstaerke"] == 50  # die Antenne steht auf halb
 
 
 def test_meldet_hoerbaren_sender_und_rauschen():
@@ -216,3 +213,42 @@ def test_meldet_hoerbaren_sender_und_rauschen():
     mini = Mini(135, -90, Medien(ende, 2))  # Mitte eines Rauschfelds
     main.spielen(mini, ZWEI_SENDER, ende, r, Strom)
     assert r.zustand()["aktiv"] is None
+
+
+def test_handy_waehlt_sender_die_sender_antenne_faehrt_mit_kraft_nur_dabei():
+    mini = Mini(10, 30)  # Lautstärke-Antenne zeigt nach außen: ein Zug genügt
+    main.wunsch_ausfuehren(mini, ZWEI_SENDER, "sender", 1)
+    # Mitte von Sender 1 liegt bei 225°, also −135°: kürzester Weg rückwärts über null
+    assert mini.protokoll == [("ziel", (10.0, 30.0)), ("an", ["right_antenna"]), ("fahren", (-135.0, 30.0), 0.4),
+                              ("aus", ["right_antenna"])]
+
+
+def test_handy_stellt_lautstaerke_die_lautstaerke_antenne_faehrt():
+    mini = Mini(300, 90)  # Lautstärke 75 %, Sender-Antenne außen
+    main.wunsch_ausfuehren(mini, EIN_SENDER, "lautstaerke", 0.25)
+    assert mini.protokoll[1:] == [("an", ["left_antenna"]), ("fahren", (300.0, 270.0), 0.5),
+                                  ("aus", ["left_antenna"])]
+    assert main.lautstaerke(mini.antennen[main.LAUTSTAERKE] / GRAD) == pytest.approx(0.25)
+
+
+def test_innere_antenne_parkt_waehrend_die_andere_durch_die_mitte_faehrt():
+    mini = Mini(300, 270)  # Lautstärke zeigt nach innen, Sender 0 liegt rechts innen
+    main.wunsch_ausfuehren(mini, ZWEI_SENDER, "sender", 0)
+    fahrten = [eintrag for eintrag in mini.protokoll if eintrag[0] in ("an", "fahren")]
+    assert fahrten == [("an", ["left_antenna"]), ("fahren", (300.0, 0.0), 0.75), ("an", ["right_antenna"]),
+                       ("fahren", (405.0, 0.0), 0.3), ("an", ["left_antenna"]), ("fahren", (405.0, 270.0), 0.75)]
+
+
+def test_fahrer_setzt_wuensche_um_und_endet_mit_dem_radio():
+    ende, r, mini = threading.Event(), regler(("Eins", "Zwei")), Mini(10, 30)
+    faden = threading.Thread(target=main.fahrer, args=(mini, ZWEI_SENDER, r, ende))
+    faden.start()
+    r.wunsch_sender(1)
+    for _ in range(50):
+        if ("aus", ["right_antenna"]) in mini.protokoll:
+            break
+        threading.Event().wait(0.02)
+    ende.set()
+    faden.join(timeout=2)
+    assert not faden.is_alive()
+    assert ("fahren", (-135.0, 30.0), 0.4) in mini.protokoll

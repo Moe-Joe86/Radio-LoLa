@@ -17,20 +17,21 @@ ueberblendung_grad = 6
 
 # Sender: jeder Sender ist ein Block aus drei Zeilen ([[sender]], name, adresse), und diese Blöcke stehen am Ende
 # der Datei. Die Adresse ist der direkte Stream (beginnt mit http:// oder https://), am besten MP3.
-# Die Reihenfolge der Blöcke ist die Reihenfolge auf der Antenne.
-
-[[sender]]
-name = "Deutschlandfunk"
-adresse = "https://st01.sslstream.dlf.de/dlf/01/128/mp3/stream.mp3"
-
-[[sender]]
-name = "Deutschlandfunk Kultur"
-adresse = "https://st02.sslstream.dlf.de/dlf/02/128/mp3/stream.mp3"
-
-[[sender]]
-name = "Deutschlandfunk Nova"
-adresse = "https://st03.sslstream.dlf.de/dlf/03/128/mp3/stream.mp3"
+# Die Reihenfolge der Blöcke ist die Reihenfolge auf der Antenne. Die vier WDR-Sender stammen aus LoLa
+# (.env.example, dort am PC geprüft).
 
 [[sender]]
 name = "WDR 2"
 adresse = "https://wdr-wdr2-rheinland.icecastssl.wdr.de/wdr/wdr2/rheinland/mp3/128/stream.mp3"
+
+[[sender]]
+name = "1LIVE"
+adresse = "https://wdr-1live-live.icecastssl.wdr.de/wdr/1live/live/mp3/128/stream.mp3"
+
+[[sender]]
+name = "WDR 4"
+adresse = "https://wdr-wdr4-live.icecastssl.wdr.de/wdr/wdr4/live/mp3/128/stream.mp3"
+
+[[sender]]
+name = "WDR 5"
+adresse = "https://wdr-wdr5-live.icecastssl.wdr.de/wdr/wdr5/live/mp3/128/stream.mp3"

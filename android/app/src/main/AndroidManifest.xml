@@ -7,7 +7,7 @@
     <application
         android:icon="@mipmap/ic_launcher"
         android:label="Radio LoLa"
-        android:theme="@android:style/Theme.Material.Light"
+        android:theme="@android:style/Theme.Material.NoActionBar"
         android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"

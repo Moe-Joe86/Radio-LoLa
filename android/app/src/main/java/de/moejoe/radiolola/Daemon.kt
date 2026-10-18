@@ -12,7 +12,9 @@ import java.net.URL
 // Eine App im Zustand „error“ belegt den Platz weiter; erst stop-current-app gibt ihn frei.
 // Solange das Radio läuft, antwortet zusätzlich sein eigener Webserver auf Port 8042 (roboter_app/…/steuerung.py):
 //   GET  /radio              -> {"sender": [Namen], "aktiv": Index oder null, "lautstaerke": 0…100, "stumm": …}
-//   POST /radio/lautstaerke  {"wert": 0…100}      POST /radio/stumm  {"an": true|false}
+//   POST /radio/sender {"index": n}   POST /radio/lautstaerke {"wert": 0…100}   POST /radio/stumm {"an": true|false}
+// Sender und Lautstärke sind Wünsche: Der Roboter fährt die passende Antenne dorthin, „aktiv“ und „lautstaerke“
+// zeigen danach wieder, was die Antennen sagen.
 
 const val APP_NAME = "radio_lola"
 const val STANDARD_ADRESSE = "reachy-mini.local"
@@ -136,6 +138,8 @@ class Daemon(eingabe: String) {
     } catch (fehler: Exception) {
         null
     }
+
+    fun senderWaehlen(index: Int): RadioZustand? = einstellen("/radio/sender", "{\"index\": $index}")
 
     fun lautstaerkeSetzen(wert: Int): RadioZustand? = einstellen("/radio/lautstaerke", "{\"wert\": $wert}")
 

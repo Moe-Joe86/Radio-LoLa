@@ -1,6 +1,6 @@
 import pytest
 
-from radio_lola.antennen import LINKS, RECHTS, dauer, heimweg, nach_oben, zeigt_nach_innen
+from radio_lola.antennen import LINKS, RECHTS, dauer, heimweg, nach_oben, streift_innen, zeigt_nach_innen, zuege
 
 
 @pytest.mark.parametrize(("index", "roh", "innen"), [
@@ -50,3 +50,29 @@ def test_schon_daheim_nichts_zu_tun():
 def test_dauer_hoechstens_eine_runde_je_sekunde():
     assert dauer((1086.0, 0.0), (0.0, 0.0)) == pytest.approx(1086 / 360)
     assert dauer((0.0, 0.0), (0.0, 10.0)) == 0.3
+
+
+@pytest.mark.parametrize(("index", "von", "nach", "streift"), [
+    (RECHTS, 270, 350, False), (RECHTS, 350, 370, True), (RECHTS, -10, -170, False), (RECHTS, 200, 900, True),
+    (LINKS, 10, 170, False), (LINKS, 170, 190, True), (LINKS, -10, 10, True), (LINKS, 360, 540, False),
+])
+def test_streift_innen(index, von, nach, streift):
+    assert streift_innen(index, von, nach) is streift
+
+
+def test_zug_ohne_gefahr_bewegt_nur_die_eine_antenne():
+    assert zuege(RECHTS, 225.0, 10.0, 30.0) == [(225.0, 30.0)]
+    assert zuege(LINKS, 270.0, 300.0, 90.0) == [(300.0, 270.0)]
+    assert zuege(LINKS, 90.0, 300.0, 90.0) == []
+
+
+def test_zug_durch_die_mitte_parkt_die_innere_andere_antenne():
+    """Rechts soll durch seine innere Hälfte, links zeigt nach innen: links parkt, rechts fährt, links kehrt zurück."""
+    assert zuege(RECHTS, 405.0, 300.0, 270.0) == [(300.0, 0.0), (405.0, 0.0), (405.0, 270.0)]
+
+
+def test_nie_beide_gleichzeitig_auch_vom_handy():
+    vorher = (1086.0, -1444.0)
+    for ziel in zuege(LINKS, -1200.0, *vorher):
+        assert sum(a != b for a, b in zip(vorher, ziel, strict=True)) == 1
+        vorher = ziel

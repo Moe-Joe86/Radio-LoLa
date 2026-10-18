@@ -1,74 +1,80 @@
-"""Aufgabe: Lautstärke und Stummschalter vom Handy, dazu die Auskunft, welche Sender es gibt und welcher spielt.
+"""Aufgabe: Schnittstelle zur Handy-App: Sender wählen, Lautstärke stellen, stummschalten, Zustand melden.
 
-Knöpfe: `Regler` (`faktor`, `lautstaerke_setzen`, `stumm_setzen`, `sender_melden`, `zustand`), `routen_anlegen`.
-Darf nicht: Hardware oder Ton anfassen; die Antennen bleiben die eigentliche Bedienung.
+Knöpfe: `Regler` (`melden`, `zustand`, `stumm_setzen`, `wunsch_sender`, `wunsch_lautstaerke`, `wunsch_holen`),
+`routen_anlegen`.
+Darf nicht: Hardware oder Ton anfassen; Sender und Lautstärke stellt allein die Antenne, das Handy wünscht nur.
 """
-# Die Handy-Lautstärke wirkt zusätzlich zur Lautstärke-Antenne: Antenne × Höchstwert aus einstellungen.toml × Handy.
-# Stumm setzt den Faktor auf null, ohne den Reglerwert zu verlieren. Beides übersteht einen Neustart (kleine
-# JSON-Datei). Die Routen hängen am Webserver, den Pollens ReachyMiniApp für `custom_app_url` startet (Port 8042).
+# Die Antennen bleiben die eine Wahrheit: Wählt das Handy einen Sender oder eine Lautstärke, fährt `main.py` die
+# passende Antenne dorthin, und das Radio hört wie immer auf die Antennen. Ein neuer Wunsch ersetzt einen noch nicht
+# begonnenen gleicher Art. Stumm ist nur ein Schalter im Ton und gilt bis zum Ende des Radios. Die Routen hängen am
+# Webserver, den Pollens ReachyMiniApp für `custom_app_url` startet (Port 8042).
 
-import json
-import logging
 import threading
-from pathlib import Path
 
-DATEI = Path.home() / ".config" / "radio_lola" / "regler.json"
-
-log = logging.getLogger("radio.steuerung")
+SENDER, LAUTSTAERKE = "sender", "lautstaerke"
 
 
 class Regler:
-    def __init__(self, sender_namen: list[str], datei: Path = DATEI) -> None:
-        self.sender_namen, self._datei = list(sender_namen), datei
+    def __init__(self, sender_namen: list[str]) -> None:
+        self.sender_namen = list(sender_namen)
         self._sperre = threading.Lock()
-        self._lautstaerke, self._stumm, self._aktiv = 100, False, None
-        try:
-            gespeichert = json.loads(datei.read_text(encoding="utf-8"))
-            self._lautstaerke = min(100, max(0, int(gespeichert["lautstaerke"])))
-            self._stumm = bool(gespeichert["stumm"])
-        except (OSError, ValueError, KeyError, TypeError):
-            pass  # erster Start oder kaputte Datei: voll und nicht stumm
+        self._neu = threading.Condition(self._sperre)
+        self._aktiv: int | None = None
+        self._lautstaerke = 0
+        self._stumm = False
+        self._wuensche: dict[str, float] = {}
 
-    def faktor(self) -> float:
-        """Anteil 0 bis 1, mit dem das Handy die Lautstärke der Antenne multipliziert."""
+    def melden(self, aktiv: int | None, lautstaerke_anteil: float) -> None:
+        """Was die Antennen gerade sagen: hörbarer Sender (oder None im Rauschen) und Lautstärke 0 bis 1."""
         with self._sperre:
-            return 0.0 if self._stumm else self._lautstaerke / 100
-
-    def lautstaerke_setzen(self, wert: int) -> None:
-        if not 0 <= wert <= 100:
-            raise ValueError(f"lautstaerke: {wert} liegt nicht zwischen 0 und 100")
-        with self._sperre:
-            self._lautstaerke = wert
-        self._speichern()
-
-    def stumm_setzen(self, an: bool) -> None:
-        with self._sperre:
-            self._stumm = an
-        self._speichern()
-
-    def sender_melden(self, index: int | None) -> None:
-        """Index des hörbaren Senders oder None im Rauschen."""
-        with self._sperre:
-            self._aktiv = index
+            self._aktiv, self._lautstaerke = aktiv, round(lautstaerke_anteil * 100)
 
     def zustand(self) -> dict:
         with self._sperre:
             return {"sender": self.sender_namen, "aktiv": self._aktiv, "lautstaerke": self._lautstaerke,
                     "stumm": self._stumm}
 
-    def _speichern(self) -> None:
+    def stumm(self) -> bool:
         with self._sperre:
-            daten = {"lautstaerke": self._lautstaerke, "stumm": self._stumm}
-        try:
-            self._datei.parent.mkdir(parents=True, exist_ok=True)
-            self._datei.write_text(json.dumps(daten), encoding="utf-8")
-        except OSError as fehler:  # dann gilt der Wert nur bis zum nächsten Start
-            log.warning("Radio: Reglerstand nicht gespeichert (%s)", fehler)
+            return self._stumm
+
+    def stumm_setzen(self, an: bool) -> None:
+        with self._sperre:
+            self._stumm = an
+
+    def wunsch_sender(self, index: int) -> None:
+        if not 0 <= index < len(self.sender_namen):
+            raise ValueError(f"sender: {index} gibt es nicht")
+        self._wuenschen(SENDER, index)
+
+    def wunsch_lautstaerke(self, wert: int) -> None:
+        if not 0 <= wert <= 100:
+            raise ValueError(f"lautstaerke: {wert} liegt nicht zwischen 0 und 100")
+        self._wuenschen(LAUTSTAERKE, wert / 100)
+
+    def _wuenschen(self, art: str, wert: float) -> None:
+        with self._neu:
+            self._wuensche[art] = wert
+            self._neu.notify()
+
+    def wunsch_holen(self, wartezeit: float) -> tuple[str, float] | None:
+        """Ältester offener Wunsch (Art, Wert) oder None, wenn in `wartezeit` Sekunden keiner kam."""
+        with self._neu:
+            if not self._wuensche:
+                self._neu.wait(wartezeit)
+            if not self._wuensche:
+                return None
+            art = next(iter(self._wuensche))
+            return art, self._wuensche.pop(art)
 
 
 def routen_anlegen(app, regler: Regler) -> None:
-    """GET /radio, POST /radio/lautstaerke {"wert": 0…100}, POST /radio/stumm {"an": true|false}."""
+    """GET /radio; POST /radio/sender {"index"}, /radio/lautstaerke {"wert": 0…100}, /radio/stumm {"an"}."""
+    from fastapi import HTTPException
     from pydantic import BaseModel, Field
+
+    class Sender(BaseModel):
+        index: int
 
     class Lautstaerke(BaseModel):
         wert: int = Field(ge=0, le=100)
@@ -80,9 +86,17 @@ def routen_anlegen(app, regler: Regler) -> None:
     def radio() -> dict:
         return regler.zustand()
 
+    @app.post("/radio/sender")
+    def sender(daten: Sender) -> dict:
+        try:
+            regler.wunsch_sender(daten.index)
+        except ValueError as fehler:
+            raise HTTPException(status_code=422, detail=str(fehler)) from None
+        return regler.zustand()
+
     @app.post("/radio/lautstaerke")
     def lautstaerke(daten: Lautstaerke) -> dict:
-        regler.lautstaerke_setzen(daten.wert)
+        regler.wunsch_lautstaerke(daten.wert)
         return regler.zustand()
 
     @app.post("/radio/stumm")

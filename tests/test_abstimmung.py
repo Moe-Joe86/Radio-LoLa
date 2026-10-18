@@ -1,6 +1,15 @@
 import pytest
 
-from radio_lola.abstimmung import angleichen, feld, gerichtet, lautstaerke, pegel
+from radio_lola.abstimmung import (
+    HOECHSTE,
+    angleichen,
+    feld,
+    gerichtet,
+    lautstaerke,
+    pegel,
+    ziel_lautstaerke,
+    ziel_sender,
+)
 
 SENDER, RAUSCHEN = "sender", ("rauschen", None)
 
@@ -99,3 +108,24 @@ def test_lautstaerke_folgt_weich():
     assert stufen[-1] == pytest.approx(1.0)
     assert angleichen(0.5, 0.52) == pytest.approx(0.52)
     assert angleichen(0.5, 0.0) == pytest.approx(0.45)
+
+
+@pytest.mark.parametrize(("index", "jetzt", "ziel"), [(0, 0, 22.5), (1, 0, 112.5), (3, 0, -67.5), (2, 1000, 922.5),
+                                                     (0, -700, -697.5)])
+def test_ziel_sender_ist_die_feldmitte_auf_kurzem_weg(index, jetzt, ziel):
+    assert ziel_sender(index, 4, jetzt) == pytest.approx(ziel)
+    assert feld(ziel_sender(index, 4, jetzt), 4) == ("sender", index)
+    assert pegel(ziel_sender(index, 4, jetzt), 4, ueberblendung=6) == (index, 1.0)
+
+
+def test_ziel_sender_mit_zaehlrichtung_und_bereich():
+    roh = ziel_sender(1, 3, 0, bereich=270, richtung=-1)
+    assert pegel(gerichtet(roh, -1), 3, 270, 6) == (1, 1.0)
+
+
+@pytest.mark.parametrize(("anteil", "jetzt"), [(0.25, 90), (0.9, -10), (0.0, -300), (1.0, -20), (0.5, 1000)])
+def test_ziel_lautstaerke_trifft_ohne_ueber_den_sprung_zu_fahren(anteil, jetzt):
+    ziel = ziel_lautstaerke(anteil, jetzt)
+    assert lautstaerke(ziel) == pytest.approx(min(anteil, HOECHSTE))
+    zwischen = [lautstaerke(jetzt + (ziel - jetzt) * k / 20) for k in range(21)]
+    assert zwischen == sorted(zwischen) or zwischen == sorted(zwischen, reverse=True)

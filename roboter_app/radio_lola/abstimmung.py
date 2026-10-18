@@ -1,6 +1,6 @@
 """Aufgabe: Rechnet aus den Antennenwinkeln, welcher Sender wie stark spielt und wie laut.
 
-Knöpfe: `gerichtet`, `feld`, `pegel`, `lautstaerke`, `angleichen`.
+Knöpfe: `gerichtet`, `feld`, `pegel`, `lautstaerke`, `angleichen`; umgekehrt `ziel_sender`, `ziel_lautstaerke`.
 Darf nicht: Hardware, Netz oder Ton anfassen; nur Standardbibliothek, alle Winkel in Grad.
 """
 # Der nutzbare Bereich wird in 2N gleich große Felder geteilt, abwechselnd Sender und Rauschen; Feld 0 ist ein
@@ -64,3 +64,23 @@ def lautstaerke(roh: float) -> float:
 def angleichen(alt: float, ziel: float, schritt: float = 0.05) -> float:
     """Nähert die Lautstärke je Tonblock höchstens um `schritt` an, damit sie weich und ohne Knacken folgt."""
     return alt + max(-schritt, min(schritt, ziel - alt))
+
+
+def _naechste(phase: float, jetzt: float) -> float:
+    """Rohwinkel mit dieser Phase, der `jetzt` am nächsten liegt (kürzester Weg, auch über null)."""
+    return jetzt + ((phase - jetzt + VOLL / 2) % VOLL - VOLL / 2)
+
+
+def ziel_sender(index: int, n: int, jetzt: float, bereich: float = VOLL, richtung: int = 1) -> float:
+    """Rohwinkel der Sender-Antenne in der Mitte des Senderfelds `index`, auf dem kürzesten Weg von `jetzt`."""
+    mitte = (2 * index + 0.5) * _breite(n, bereich)
+    return _naechste((richtung * mitte) % VOLL, jetzt)
+
+
+HOECHSTE = 0.995  # ganz oben springt die Lautstärke von voll auf leise; so weit fährt das Handy nie
+
+
+def ziel_lautstaerke(anteil: float, jetzt: float) -> float:
+    """Rohwinkel der Lautstärke-Antenne für `anteil` (0 bis 1), ohne über den Sprung oben zu fahren."""
+    anteil = min(HOECHSTE, max(0.0, anteil))
+    return jetzt - (anteil - lautstaerke(jetzt)) * VOLL
