@@ -1,5 +1,7 @@
 # Checks the robot app and the Android app on every push. On main it also creates a GitHub release with the APK,
 # the robot app package and the install script; the "releases/latest/download/…" links always point to the newest.
+# The build number continues the numbering of the earlier workflow (8 builds), so the APK's version code keeps rising
+# and Android accepts each new APK as an update.
 name: Build and release
 
 on:
@@ -8,6 +10,9 @@ on:
 
 permissions:
   contents: write
+
+env:
+  BUILD: ${{ github.run_number }}
 
 jobs:
   robot-app:
@@ -53,7 +58,7 @@ jobs:
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
       - name: Test and build the APK
-        run: ./gradlew --no-daemon testReleaseUnitTest assembleRelease
+        run: APP_VERSION_CODE=$((BUILD + 100)) ./gradlew --no-daemon testReleaseUnitTest assembleRelease
       - name: Name the APK
         run: cp app/build/outputs/apk/release/app-release.apk Radio-LoLa.apk
       - uses: actions/upload-artifact@v4
@@ -74,8 +79,8 @@ jobs:
         run: find output -type f -exec cp {} . \; && ls -la *.apk *.whl *.sh
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: build-${{ github.run_number }}
-          name: Radio LoLa (build ${{ github.run_number }})
+          tag_name: v1.0.${{ github.run_number }}
+          name: Radio LoLa 1.0.${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           make_latest: "true"
           body: |

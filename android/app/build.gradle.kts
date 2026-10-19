@@ -12,8 +12,8 @@ android {
         minSdk = 24
         targetSdk = 35
         // Every build on GitHub counts up, so Android accepts the new APK as an update.
-        versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
-        versionName = "1.$versionCode"
+        versionCode = System.getenv("APP_VERSION_CODE")?.toIntOrNull() ?: 1
+        versionName = "1.0.${System.getenv("BUILD") ?: "0"}"
     }
 
     // Fixed key in the repository: every new APK installs over the old one. It protects nothing secret.
