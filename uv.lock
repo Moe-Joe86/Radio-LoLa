@@ -489,7 +489,7 @@ wheels = [
 ]
 
 [[package]]
-name = "radio-lola-entwicklung"
+name = "radio-lola-dev"
 version = "0.1.0"
 source = { virtual = "." }
 

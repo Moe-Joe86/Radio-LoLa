@@ -3,7 +3,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Der Daemon des Roboters spricht nur unverschlüsseltes HTTP im Heimnetz. -->
+    <!-- The robot's daemon only speaks plain HTTP on the home network. -->
     <application
         android:icon="@mipmap/ic_launcher"
         android:label="Radio LoLa"

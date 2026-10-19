@@ -1,4 +1,4 @@
-"""Attrappe für das Reachy-Mini-SDK: Die Tests laufen ohne Roboter und ohne das Paket reachy-mini."""
+"""Stand-in for the Reachy Mini SDK: the tests run without a robot and without the reachy-mini package."""
 
 import sys
 import threading
@@ -14,7 +14,7 @@ class _ReachyMiniApp:
         self.stop_event.set()
 
 
-_attrappe = types.ModuleType("reachy_mini")
-_attrappe.ReachyMini = object
-_attrappe.ReachyMiniApp = _ReachyMiniApp
-sys.modules["reachy_mini"] = _attrappe
+_stand_in = types.ModuleType("reachy_mini")
+_stand_in.ReachyMini = object
+_stand_in.ReachyMiniApp = _ReachyMiniApp
+sys.modules["reachy_mini"] = _stand_in

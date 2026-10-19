@@ -1,6 +1,6 @@
-# Nur für die Entwicklung: Tests und Prüfungen. Die Roboter-App selbst liegt in roboter_app/.
+# Development only: tests and checks. The robot app itself lives in robot_app/.
 [project]
-name = "radio-lola-entwicklung"
+name = "radio-lola-dev"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = []
@@ -29,5 +29,5 @@ known-first-party = ["radio_lola"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["roboter_app"]
+pythonpath = ["robot_app"]
 addopts = "--import-mode=importlib"

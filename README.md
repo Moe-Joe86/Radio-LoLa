@@ -1,150 +1,162 @@
+<p align="center"><img src="docs/icon.png" alt="Radio LoLa" width="160"></p>
+
 # Radio LoLa
 
-Ein Radio für den Reachy Mini Wireless. Es läuft als App direkt auf dem Roboter und wird mit einer kleinen
-Android-App ein- und ausgeschaltet. Einen PC braucht man nur einmal zum Installieren.
+**A radio for the [Reachy Mini Wireless](https://huggingface.co/docs/reachy_mini) robot, played with its antennas.**
 
-So geht es im Alltag:
+One antenna tunes through the stations, with radio noise between them, just like the dial of an old radio. The
+other antenna sets the volume. The radio runs as an app directly on the robot, and a small Android app (German and
+English) starts and stops it, picks stations, sets the volume and manages the station list. You only need a computer
+once, to install the radio on the robot.
 
-1. Roboter einschalten und etwa eine Minute warten.
-2. Auf dem Handy die App **Radio LoLa** öffnen. Oben steht, ob der Roboter erreichbar ist.
-3. **Radio starten** drücken. Der Roboter wacht auf, die Antennen fahren in die Grundstellung, dann spielt das Radio.
-4. Bedienen wie gewohnt über die Antennen:
-   - die rechte Antenne des Roboters (von vorn gesehen **links**) sucht Sender, dazwischen rauscht es,
-   - die linke Antenne des Roboters (von vorn gesehen **rechts**) stellt die Lautstärke: oben ist leise, gegen den
-     Uhrzeigersinn wird es lauter.
-5. Oder über das Handy: Einen Sender antippen, dann dreht der Roboter die Sender-Antenne genau auf diesen Sender.
-   Den Lautstärkeregler loslassen, dann dreht er die Lautstärke-Antenne auf diesen Wert. Die Antennen stimmen also
-   immer mit dem Handy überein, und man kann jederzeit wieder von Hand weiterdrehen. Zeigt die andere Antenne gerade
-   nach innen und müsste die bewegte ebenfalls nach innen, parkt die andere kurz oben und kehrt danach zurück, damit
-   sich die Antennen nicht stoßen (gleiche Regel wie beim Heimfahren). Der **Stumm**-Knopf schaltet
-   nur den Ton ab, ohne die Antenne zu bewegen. Der gerade hörbare Sender ist hervorgehoben. Ist das Radio aus,
-   zeigt die App die zuletzt gemeldete Senderliste blass an.
-6. **Radio stoppen** drücken. Die Antennen fahren nacheinander heim, die Motoren werden wieder eingeschaltet.
+> Radio LoLa is a hobby project. It is not affiliated with Pollen Robotics or Hugging Face.
 
-## a) Android-App herunterladen
+## Features
 
-**https://github.com/Moe-Joe86/Radio-LoLa/releases/latest/download/Radio-LoLa.apk**
+- **Antenna controls:** the robot's right antenna (on the left seen from the front) tunes stations, the left one
+  (on the right seen from the front) sets the volume. Between stations you hear noise; at the edges of a station the
+  sound fades smoothly between station and noise.
+- **Phone app:** start and stop the radio, see which station is playing, tap a station, set the volume, mute.
+  Picking a station or a volume on the phone **turns the robot's antenna** to the matching position, so the antennas
+  always agree with the phone and you can keep turning them by hand.
+- **Station list:** add stations (by stream address; the name usually comes from the station itself) and remove
+  them, up to 8. The list is kept on the robot and survives updates.
+- **Careful with the hardware:** only one antenna moves at a time. If one antenna points towards the middle and the
+  other one would have to go there too, the first one parks at the top for a moment, so they cannot collide. When the
+  radio stops, both antennas go home and the motors are switched on again.
+- **Runs on the robot:** the radio is a regular Reachy Mini app, started and stopped by the robot's daemon. No
+  computer needs to stay on.
 
-Den Link auf dem Handy öffnen. Android fragt beim ersten Mal, ob der Browser Apps installieren darf: auf
-**Einstellungen** tippen, **Dieser Quelle vertrauen** (oder „Unbekannte Apps installieren“) einschalten, zurück,
-**Installieren**. Eine neuere APK lässt sich genauso über die alte installieren.
+## What you need
 
-In der App steht oben die Adresse des Roboters, vorgegeben ist `reachy-mini.local`. Manche Handys finden diesen
-Namen nicht; dann bleibt „Roboter nicht erreichbar“ stehen. In dem Fall die IP-Adresse des Roboters eintragen
-(z. B. `192.168.178.50`). Die IP findet man in der Geräteliste des Routers (Fritz!Box: `fritz.box` im Browser öffnen,
-**Heimnetz** → **Netzwerk**, Eintrag „reachy-mini“). Die App merkt sich die Eingabe.
+- A Reachy Mini **Wireless** in your Wi-Fi.
+- An Android phone (Android 7 or newer) in the same Wi-Fi.
+- Once, for installing: a computer (Windows, macOS or Linux) in the same Wi-Fi.
 
-## b) Das Radio auf dem Roboter installieren
+## 1. Install the radio on the robot
 
-Einmal nötig, und noch einmal nach jeder Änderung (zum Beispiel an der Senderliste). Man braucht einen PC oder Mac im
-selben WLAN wie der Roboter.
+Needed once, and again whenever you want a newer version.
 
-1. Den Roboter einschalten und etwa eine Minute warten.
-2. Am PC ein Befehlsfenster öffnen:
-   - **Windows:** unten auf die Windows-Taste (Start) klicken, `PowerShell` tippen, auf **Windows PowerShell**
-     klicken.
-   - **Mac:** **Finder** → **Programme** → **Dienstprogramme** → **Terminal** doppelklicken.
-3. In das Fenster genau das tippen und dann die **Eingabetaste** drücken:
+1. Switch on the robot and wait about a minute.
+2. Open a terminal on your computer:
+   - **Windows:** press the Windows key, type `PowerShell`, click **Windows PowerShell**.
+   - **macOS:** **Finder** → **Applications** → **Utilities** → **Terminal**.
+3. Type the following and press **Enter**:
 
    ```
    ssh pollen@reachy-mini.local
    ```
 
-   Kommt „Could not resolve hostname“, statt `reachy-mini.local` die IP-Adresse des Roboters nehmen
-   (siehe oben, z. B. `ssh pollen@192.168.178.50`).
-4. Nur beim allerersten Mal fragt das Fenster „Are you sure you want to continue connecting (yes/no)?“:
-   `yes` tippen, **Eingabetaste**.
-5. Bei „password:“ das Passwort `root` tippen (man sieht beim Tippen nichts, das ist normal), **Eingabetaste**.
-   Das Passwort steht so in Pollens Anleitung. Wer es geändert hat, nimmt sein eigenes.
-6. Jetzt steht vorn etwas wie `pollen@reachy-mini:~ $`. Diese Zeile kopieren, ins Fenster einfügen (Windows:
-   **Rechtsklick** ins Fenster; Mac: **⌘ + V**) und die **Eingabetaste** drücken:
+   If you get “Could not resolve hostname”, use the robot's IP address instead of `reachy-mini.local`, e.g.
+   `ssh pollen@192.168.178.50`. You find the IP in your router's list of devices.
+4. The very first time you are asked “Are you sure you want to continue connecting (yes/no)?”: type `yes`,
+   press **Enter**.
+5. At “password:” type `root` (nothing appears while typing, that is normal) and press **Enter**. This is the default
+   password from Pollen's documentation; if you changed it, use yours.
+6. Copy this line, paste it into the window (Windows: **right-click**; macOS: **⌘ + V**) and press **Enter**:
 
    ```
-   curl -fsSL https://github.com/Moe-Joe86/Radio-LoLa/releases/latest/download/installieren.sh | bash
+   curl -fsSL https://github.com/Moe-Joe86/Radio-LoLa/releases/latest/download/install.sh | bash
    ```
 
-7. Warten, bis **„Radio LoLa: FERTIG“** erscheint. Das dauert meist unter einer Minute, beim allerersten Mal bis zu
-   etwa zehn Minuten, falls der Roboter seine App-Umgebung erst anlegen muss.
-   - Steht stattdessen „installiert, aber der Daemon listet sie noch nicht“: den Roboter einmal aus- und wieder
-     einschalten.
-   - Steht eine Fehlermeldung da: das Fenster offen lassen und die letzten Zeilen abfotografieren.
-8. `exit` tippen, **Eingabetaste**, Fenster schließen.
-9. Auf dem Handy die App öffnen und **Radio starten** drücken.
+7. Wait for **“Radio LoLa: DONE”**. This usually takes less than a minute; the very first time it can take up to about
+   ten minutes if the robot still has to create its app environment. If it says “the daemon does not list it yet”,
+   switch the robot off and on once.
+8. Type `exit`, press **Enter** and close the window.
 
-Der Weg folgt Pollens Doku („Offline / manual deployment for a Wireless unit“ in
-[Building & Publishing Apps](https://github.com/pollen-robotics/reachy_mini/blob/main/docs/source/SDK/apps.md)):
-Apps des Roboters liegen in `/venvs/apps_venv`, der Daemon findet sie dort von selbst. Den App-Store von
-Reachy Mini Control braucht das Radio nicht.
+The install follows Pollen's “Offline / manual deployment for a Wireless unit” in
+[Building & Publishing Apps](https://github.com/pollen-robotics/reachy_mini/blob/main/docs/source/SDK/apps.md): the app
+is installed into the robot's app environment `/venvs/apps_venv`, where the daemon finds it by itself.
 
-### Sender ändern
+## 2. Install the Android app
 
-Die Senderliste und die Grenzwerte stehen in
-[`roboter_app/radio_lola/einstellungen.toml`](roboter_app/radio_lola/einstellungen.toml). Auf GitHub die Datei
-öffnen, oben rechts auf den **Stift** klicken, ändern, **Commit changes…** und noch einmal **Commit changes**
-drücken. Nach etwa fünf Minuten ist ein neues Release gebaut (unter **Actions** wird der Lauf grün); dann die Schritte
-2 bis 8 oben wiederholen. Ist in der Datei etwas falsch, startet das Radio nicht und die Handy-App zeigt den Grund.
+Open this link on your phone:
 
-## c) Was geprüft ist und was erst am Roboter zu testen ist
+**https://github.com/Moe-Joe86/Radio-LoLa/releases/latest/download/Radio-LoLa.apk**
 
-### Geprüft
+The first time, Android asks whether your browser may install apps: tap **Settings**, allow it (“Allow from this
+source” or “Install unknown apps”), go back and tap **Install**. A newer APK installs over the old one the same way.
 
-- **Bauweise der App** nach Pollens Doku (Quelltext der offiziellen Doku im Repo `pollen-robotics/reachy_mini`,
-  Stand 16. Oktober 2026, Paket `reachy_mini` 1.12.0): Gerüst mit Pollens `reachy-mini-app-assistant create`
-  erzeugt, Klasse `ReachyMiniApp` mit `run(reachy_mini, stop_event)`, Einstiegspunkt `reachy_mini_apps`.
-- **Start und Stopp über den Daemon**, mit Pollens Daemon 1.12.0 im Attrappen-Modus (`--mockup-sim`, ohne Hardware)
-  auf demselben Weg wie die Handy-App: Der Daemon findet die App, `start-app/radio_lola` startet sie, das SDK verbindet
-  sich lokal, die Antennen fahren nacheinander heim, der Roboter wird geweckt. `stop-current-app` schickt SIGINT, die
-  App fährt die Antennen nacheinander heim (von 401° / −172° aus), schaltet die Motoren ein und endet sauber nach
-  3,7 s. Eine fehlerhafte Einstellung endet im Zustand „error“ mit lesbarer Meldung; danach lehnt der Daemon neue
-  Starts ab, bis einmal gestoppt wird – die Handy-App macht das von selbst.
-- **Bewegungen direkt über das SDK**: Der REST-Umweg ist weg. Im Daemon-Code ist `enable_motors()` dasselbe wie der
-  frühere REST-Aufruf `set_mode/enabled`, und `goto_target` wartet, bis die Bewegung fertig ist.
-- **Empfang**: GStreamer-Teil mit echter MP3 über HTTP getestet (lokaler Test-Server): Ton kommt als 16 kHz mono an,
-  nach Ende des Streams verbindet er neu.
-- **Rechenlast** des Mischens (Rauschen, Lautstärke): 38 µs je Tonblock von 64 ms auf einem PC, also unter 0,1 %.
-- **Installationsskript**: auf einem PC durchgespielt, auch der Fall ohne vorhandene App-Umgebung.
-- **Fehler vom 18. Oktober behoben**: Die Lautstärke-Antenne bewegte sich manchmal nicht, dafür sprang sie beim
-  Senderwechsel. Ursache: Das Radio maß die Antennen zweimal und schloss aus einem Unterschied der Messungen, welche
-  Antenne fahren soll; am Roboter schwanken zwei Messungen immer um Bruchteile eines Grades, dann bekam die falsche
-  Antenne Kraft. Jetzt nennt jede Fahrt ihre Antenne ausdrücklich, und vor jeder Fahrt wird neu gemessen. Ein Test
-  stellt das Messrauschen nach; mit dem alten Code schlägt er fehl, mit dem neuen nicht.
-- **Tests ohne Hardware**: 145 Python-Tests (Abstimmung, Antennenfahrten, Strom, Einstellungen, Steuerung, Ablauf mit
-  Attrappen-Roboter) und 8 Tests der Handy-App-Logik; laufen bei jedem Push auf GitHub.
-- **Pfade der Handy-App** aus dem Daemon-Code und der Doku: `GET /api/apps/current-app-status`,
-  `POST /api/apps/start-app/radio_lola`, `POST /api/apps/stop-current-app`. Senderliste, Senderwahl, Lautstärke und Stumm
-  laufen über den Webserver der Radio-App auf Port 8042 (`GET /radio`, `POST /radio/sender`, `/radio/lautstaerke`,
-  `/radio/stumm`), den Pollens App-Gerüst für App-Einstellungen vorsieht. Im Attrappen-Modus des Daemons geprüft:
-  Senderwahl und Lautstärke fahren die richtige Antenne ans richtige Ziel, das Radio meldet danach den gewählten
-  Sender und die gewählte Lautstärke.
-- **Antennen vom Handy ohne Zusammenstoß**: Es bewegt sich immer nur eine Antenne. Zeigt die andere nach innen und
-  müsste die bewegte durch ihre innere Hälfte, parkt die andere kurz oben und kehrt danach zurück (wie beim Heimweg). Den Lautstärke-Weg
-  des Daemons nehme ich nicht: Er spielt bei jeder Änderung einen Testton.
+At the bottom of the app is the robot's address, `reachy-mini.local` by default. Some phones cannot find this name;
+then the app keeps showing “Robot not reachable”. In that case enter the robot's IP address instead. The app
+remembers it. The language switch (**DE** / **EN**) is at the top right.
 
-### Erst am echten Roboter zu testen
+## 3. Use it
 
-- Sender: WDR 2, 1LIVE, WDR 4 und WDR 5 sind dieselben wie in LoLa und waren dort am PC geprüft. WDR 3 folgt dem
-  Adressmuster des WDR, ist aber ungeprüft. Ob GStreamer auf dem Roboter HTTPS-Streams und MP3/AAC entschlüsseln kann, ist nicht
-  gemessen; das Radio schreibt beim Start ins Protokoll, falls etwas fehlt („GStreamer kann auf diesem Roboter
-  nicht: …“). MP3-Sender sind die sicherere Wahl.
-- Ob es auf dem Raspberry Pi 4 ohne Aussetzer läuft. Vermutung: ja, das Mischen kostet fast nichts, das Entschlüsseln
-  eines MP3-Streams wenige Prozent eines Kerns. Klangqualität: Das SDK spielt mit 16 kHz, das klingt eher nach
-  Küchenradio als nach HiFi.
-- Ob das Wecken und die Heimfahrt am echten Roboter so aussehen wie am 15. Oktober gemessen (im Attrappen-Modus
-  stimmen nur die Befehle, nicht die Mechanik).
-- Ob dein Handy `reachy-mini.local` findet (sonst IP eintragen, siehe oben).
-- Antennenfahrten vom Handy: Für eine Fahrt bekommt nur die bewegte Antenne kurz Kraft, vorher wird ihr Ziel auf die
-  gemessene Stellung gesetzt, damit sie nicht springt. Im Attrappen-Modus stimmen die Befehle; ob die echte Antenne
-  dabei ruhig anfährt, zeigt erst der Roboter. Beim ersten Mal bitte zuschauen.
-- Zeigen am Ende beide Antennen nach innen (z. B. ein Sender rechts innen und eine Lautstärke unter 50 %), fährt
-  die zuletzt zurückkehrende Antenne neben einer inneren. Ob sich die Antennen dabei berühren können, weiß ich nicht.
+1. Switch on the robot and open the app. It shows whether the robot is reachable.
+2. Tap **Start radio**. The robot wakes up, the antennas go to their start position, then the radio plays.
+3. Turn the antennas by hand, or use the phone:
+   - **Volume antenna:** up is quiet; turning it counter-clockwise (seen from the front) makes it louder.
+   - **Tuning antenna:** each station has its own field on the circle, with noise in between.
+   - **Phone:** tap a station or release the volume slider, and the robot turns the matching antenna there.
+     **Mute** only silences the sound and does not move an antenna.
+4. Tap **Stop radio**. The antennas go home one after the other and the motors are switched on again.
 
-## Aufbau
+The volume slider, the station buttons and **Add**/**Delete** work while the radio is playing. When the radio is
+off, the app shows the last known station list greyed out.
 
-| Ordner | Inhalt |
+Only one Reachy Mini app can run at a time. If another app is running, the phone app says so; stop it first.
+
+## Managing stations
+
+- **Add:** tap **Add**, enter the stream address (the direct link to the audio stream, starting with `http://` or
+  `https://`; `.m3u` and `.pls` playlists work too) and optionally a name. The robot connects to the stream once to
+  check it. If you leave the name empty, it takes the name the station sends along (`icy-name`), otherwise the
+  address' host name. MP3 streams are the safest choice. Up to 8 stations.
+- **Delete:** tap **Delete**, choose the station and confirm. The last station cannot be removed.
+- After a change, all fields on the tuning antenna shift a little. The robot then turns the antenna back to the
+  station that was playing, so you keep hearing it.
+
+The list lives on the robot in `~/.config/radio_lola/stations.json` and is not touched by updates. The stations in
+[`robot_app/radio_lola/settings.toml`](robot_app/radio_lola/settings.toml) are only the starting list for the very
+first start. Default stations: WDR 2, 1LIVE, WDR 3, WDR 4 and WDR 5 (German public radio).
+
+## Other settings
+
+[`robot_app/radio_lola/settings.toml`](robot_app/radio_lola/settings.toml) also holds the highest volume, the usable
+angle and counting direction of the tuning antenna, and the width of the crossfade between station and noise. To
+change them, edit the file in your own fork, let the GitHub workflow build a release, and install from your fork
+(replace `Moe-Joe86` in the `curl` line and in `robot_app/install.sh`).
+
+## How it works
+
+```
+Phone app ──HTTP──▶ daemon on the robot (port 8000): start / stop the app, status
+          ──HTTP──▶ Radio LoLa app on the robot (port 8042): stations, volume, mute, add / delete
+                      │
+                      ├─ reads both antennas every 64 ms, mixes station sound and noise, plays it
+                      └─ a second thread turns an antenna when the phone asks for it
+```
+
+- **The daemon** is Pollen's control program. It starts with the robot and runs all the time. It starts an app as a
+  separate program and stops it with a signal; Radio LoLa then brings the antennas home and ends.
+- **The radio does not start by itself** when the robot is switched on; you start it from the phone. The daemon
+  can start one app automatically on wake-up (“startup app”, see Pollen's docs), but this project does not set that.
+- **Sound:** each station is received with GStreamer (included with the robot's software), converted to 16 kHz mono,
+  mixed with white noise according to the tuning antenna, and played through the robot's speaker.
+- **Logs:** the radio writes no files of its own. Its messages go to the daemon's log. On the robot:
+  `sudo journalctl -u reachy-mini-daemon --since "1 hour ago"`.
+
+## Project layout
+
+| Folder | Contents |
 |---|---|
-| `roboter_app/` | die Reachy-Mini-App (Gerüst von Pollens Assistent), Installationsskript |
-| `tests/` | Python-Tests ohne Hardware, Attrappe des SDK in `tests/conftest.py` |
-| `android/` | die Android-App (Kotlin, ein Bildschirm) |
-| `.github/workflows/ausliefern.yml` | testet bei jedem Push; auf `main` zusätzlich Release mit APK und Roboter-Paket |
+| `robot_app/` | the Reachy Mini app (structure from Pollen's `reachy-mini-app-assistant`) and `install.sh` |
+| `robot_app/radio_lola/` | `main.py` (app), `tuning.py` (stations, noise, volume), `antennas.py` (safe moves), `stream.py` (receiving), `stations.py` (station list), `control.py` (phone interface), `settings.py` / `settings.toml` |
+| `tests/` | Python tests without hardware; a stand-in for the SDK in `tests/conftest.py` |
+| `android/` | the Android app (Kotlin, one screen, no extra libraries) |
+| `.github/workflows/release.yml` | tests on every push; on `main` also builds a release with the APK and the robot package |
 
-Tests lokal: `uv run pytest`, Prüfung: `uv run ruff check .`
+## Development
+
+```
+uv run pytest          # Python tests, no robot needed
+uv run ruff check .    # lint
+cd android && ./gradlew testReleaseUnitTest assembleRelease   # Android tests and APK (needs the Android SDK)
+```
+
+Every push to `main` builds a new release; the links above always point to the newest one.
+
+## License
+
+[MIT](LICENSE) © Moe-Joe86

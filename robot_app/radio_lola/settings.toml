@@ -1,0 +1,40 @@
+# Radio LoLa settings
+#
+# The stations at the end of this file are only the starting list. From the first start on, the robot keeps its own
+# list (~/.config/radio_lola/stations.json on the robot) and you add or remove stations in the phone app.
+
+# Highest volume in percent (0 to 100); the volume antenna goes from 0 up to this value.
+max_volume = 60
+
+# Usable angle of the tuning antenna in degrees (10 to 360); beyond it there is only noise.
+span_deg = 360
+
+# Counting direction of the tuning antenna: 1 or -1.
+direction = 1
+
+# Width of the smooth crossfade between station and noise in degrees (0 to 30).
+crossfade_deg = 6
+
+# Starting stations: one block of three lines per station ([[station]], name, url), at most 8, and these blocks must
+# stay at the end of the file. The url is the direct stream (starting with http:// or https://), MP3 works best.
+# The order of the blocks is the order on the antenna.
+
+[[station]]
+name = "WDR 2"
+url = "https://wdr-wdr2-rheinland.icecastssl.wdr.de/wdr/wdr2/rheinland/mp3/128/stream.mp3"
+
+[[station]]
+name = "1LIVE"
+url = "https://wdr-1live-live.icecastssl.wdr.de/wdr/1live/live/mp3/128/stream.mp3"
+
+[[station]]
+name = "WDR 3"
+url = "https://wdr-wdr3-live.icecastssl.wdr.de/wdr/wdr3/live/mp3/128/stream.mp3"
+
+[[station]]
+name = "WDR 4"
+url = "https://wdr-wdr4-live.icecastssl.wdr.de/wdr/wdr4/live/mp3/128/stream.mp3"
+
+[[station]]
+name = "WDR 5"
+url = "https://wdr-wdr5-live.icecastssl.wdr.de/wdr/wdr5/live/mp3/128/stream.mp3"

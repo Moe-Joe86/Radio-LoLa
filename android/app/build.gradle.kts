@@ -11,12 +11,12 @@ android {
         applicationId = "de.moejoe.radiolola"
         minSdk = 24
         targetSdk = 35
-        // Jeder Bau auf GitHub zählt hoch, damit Android die neue APK als Aktualisierung annimmt.
+        // Every build on GitHub counts up, so Android accepts the new APK as an update.
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         versionName = "1.$versionCode"
     }
 
-    // Fester Schlüssel im Repo: Jede neue APK lässt sich über die alte installieren. Er schützt nichts Geheimes.
+    // Fixed key in the repository: every new APK installs over the old one. It protects nothing secret.
     signingConfigs {
         create("fest") {
             storeFile = file("radio-lola.keystore")
