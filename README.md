@@ -2,7 +2,7 @@
 
 # Radio LoLa
 
-**A radio for the [Reachy Mini Wireless](https://huggingface.co/docs/reachy_mini) robot, played with its antennas.**
+**Another radio for the [Reachy Mini Wireless](https://huggingface.co/docs/reachy_mini) robot, controlled with an Android-APP and its antennas.**
 
 One antenna tunes through the stations, with radio noise between them, just like the dial of an old radio. The
 other antenna sets the volume. The radio runs as an app directly on the robot, and a small Android app (German and
